@@ -64,14 +64,14 @@ class CycleGanModel(BaseModel):
         return self.gen_B(x)
     
     def D_A(self, x):
-        return tf.reduce_mean(tf.abs(self.disc_A(x) - x)**1)
+        return tf.reduce_mean(tf.abs(self.disc_A(x) - x)**2)
     
     def D_B(self, x):
-        return tf.reduce_mean(tf.abs(self.disc_B(x) - x)**1)
+        return tf.reduce_mean(tf.abs(self.disc_B(x) - x)**2)
     
     def cycle_loss(self, A, B):
-        return tf.reduce_mean(tf.abs(A - self.G_B(self.G_A(A)))**1)\
-             + tf.reduce_mean(tf.abs(B - self.G_A(self.G_B(B)))**1)
+        return tf.reduce_mean(tf.abs(A - self.G_B(self.G_A(A)))**2)\
+             + tf.reduce_mean(tf.abs(B - self.G_A(self.G_B(B)))**2)
      
     def grad_penalty(self, A, B):
         alpha = tf.random_uniform(
@@ -139,5 +139,5 @@ if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=128)
     m.train('/home/paperspace/data/cifar100/A', 
             '/home/paperspace/data/cifar100/B',
-            lambda_cyc=1, lambda_gp=10,
+            lambda_cyc=1, lambda_gp=1,
             batch_size=64, d_step=2)
