@@ -11,6 +11,7 @@ def DilatedDenseConv2D(x, kernel_size=3, channels=128,
     '''
     y = tf.keras.layers.Conv2D(channels, kernel_size, dilation_rate=2,
                                padding='same', activation=activation, name=name)(x)
+    #y = tf.keras.layers.BatchNormalization()(y)
     return tf.keras.layers.concatenate([y, x], axis=-1, name=name+'_skip')
 
 def Pix2PixModel(img_size, kernel_size=3, hidden_dim=128,
@@ -22,8 +23,8 @@ def Pix2PixModel(img_size, kernel_size=3, hidden_dim=128,
     inp = x = tf.keras.layers.Input(shape=(img_size, img_size, 3)) 
     for i in range(int(np.log2(img_size))):
         x = DilatedDenseConv2D(x, kernel_size, hidden_dim,
-                               activation, name=name+'_DDconv2D-'+str(i))
-    out = tf.keras.layers.Conv2D(3, 1, activation=None, name=name+'_out')(x)
+                               activation, name=name+'_conv2D-'+str(i))
+    out = tf.keras.layers.Conv2D(3, 1, activation='tanh', name=name+'_out')(x)
     return tf.keras.models.Model(inp, out, name=name)
 
 class BaseModel(tf.keras.models.Model):
@@ -46,7 +47,7 @@ class BaseModel(tf.keras.models.Model):
 
 class CycleGanModel(BaseModel):
     ''''''
-    def __init__(self, img_size, kernel_size=3, hidden_dim=128, activation='relu'):
+    def __init__(self, img_size, kernel_size=3, hidden_dim=128, activation='selu'):
         ''''''
         self.img_size = img_size
         self.gen_A, self.gen_B, self.disc_A, self.disc_B = models = [
@@ -63,30 +64,30 @@ class CycleGanModel(BaseModel):
     def G_B(self, x):
         return self.gen_B(x)
     
-    def D_A(self, x):
-        return tf.reduce_mean(tf.abs(self.disc_A(x) - x)**2)
-    
-    def D_B(self, x):
-        return tf.reduce_mean(tf.abs(self.disc_B(x) - x)**2)
-    
-    def cycle_loss(self, A, B):
-        return tf.reduce_mean(tf.abs(A - self.G_B(self.G_A(A)))**2)\
-             + tf.reduce_mean(tf.abs(B - self.G_A(self.G_B(B)))**2)
+    def L_D(self, A, B, norm=1):
+        return tf.reduce_mean([
+            tf.abs(A - self.disc_A(A))**norm,
+            tf.abs(B - self.disc_B(B))**norm])
+
+    def L_C(self, A, B, norm=1):
+        return tf.reduce_mean([
+            tf.abs(A - self.G_B(self.G_A(A)))**norm,
+            tf.abs(B - self.G_A(self.G_B(B)))**norm])
      
-    def grad_penalty(self, A, B):
-        alpha = tf.random_uniform(
-            shape=(2, tf.shape(A)[0], 1, 1, 1),
-            minval=0.,
-            maxval=1.
-        )
-        interpolates = [B + alpha[0]*(self.G_A(A) - B), A + alpha[1]*(self.G_B(B) - A)]
-        gradients = [tf.gradients(self.D_B(i), [i]) for i in interpolates]
-        slopes = [tf.sqrt(tf.reduce_sum(tf.square(g), axis=(1, 2, 3))) for g in gradients]
-        return tf.reduce_mean([(s-1.)**2 for s in slopes])
+    #def grad_penalty(self, A, B):
+    #    alpha = tf.random_uniform(
+    #        shape=(2, tf.shape(A)[0], 1, 1, 1),
+    #        minval=0.,
+    #        maxval=1.
+    #    )
+    #    interpolates = [B + alpha[0]*(self.G_A(A) - B), A + alpha[1]*(self.G_B(B) - A)]
+    #    gradients = [tf.gradients(self.D_B(i), [i]) for i in interpolates]
+    #    slopes = [tf.sqrt(tf.reduce_sum(tf.square(g), axis=(1, 2, 3))) for g in gradients]
+    #    return tf.reduce_mean([(s-1.)**2 for s in slopes])
         
     
     def train(self, input_A, input_B,
-              lambda_cyc=1, lambda_gp=1,
+              lambda_c=1, lambda_g=-0.1,
               batch_size=4, d_step=2):
         ''''''
         
@@ -94,19 +95,18 @@ class CycleGanModel(BaseModel):
             
             coord = tf.train.Coordinator()
             step = tf.Variable(0, dtype=tf.int32, name='global_step')
+            learning = tf.keras.backend.learning_phase()
             A, B = [self.stream_input(i, self.img_size, batch_size) 
                     for i in (input_A, input_B)]
         
         with tf.variable_scope('Optimizer'):
 
-            L_GP = self.grad_penalty(A, B)
-            L_D = self.D_A(A) + self.D_B(B)\
-                - self.D_A(self.G_B(B)) - self.D_B(self.G_A(A))
-            L_D_tot = lambda_gp*L_GP + L_D
-
-            L_C = self.cycle_loss(A, B)
-            L_G = self.D_A(self.G_B(B)) + self.D_B(self.G_A(A))
-            L_G_tot = lambda_cyc*L_C + L_G
+            L_D = self.L_D(A, B)
+            L_C = self.L_C(A, B)
+            L_G = self.L_D(self.G_A(A), self.G_B(B))
+            
+            L_D_tot = lambda_g*L_G + L_D
+            L_G_tot = lambda_c*L_C + L_G
 
             W_D = self.disc_A.trainable_weights + self.disc_B.trainable_weights
             W_G = self.gen_A.trainable_weights + self.gen_B.trainable_weights
@@ -118,17 +118,17 @@ class CycleGanModel(BaseModel):
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
                 tf.train.start_queue_runners(sess=sess, coord=coord)
-                self.save('/home/paperspace/training/cyclegan_{}.h5'.format(
+                self.save('/Users/jkyl/Desktop/cyclegan_{}.h5'.format(
                     '0'.zfill(8)))
                 self.graph.finalize()
                 while not coord.should_stop():
                     for _ in range(d_step):
-                        _, l, g = sess.run([D_opt, L_D, L_GP])
-                    _, c, n = sess.run([G_opt, L_C, step])
-                    print('\nD loss: {}\nC loss: {}\nGP loss: {}'.format(l, c, g))
-                    if not n % 100:
-                        self.save('/home/paperspace/training/cyclegan_{}.h5'.format(
-                            str(n).zfill(8)))
+                        _, D, G = sess.run([D_opt, L_D, L_G], {learning: True})
+                    _, C, N = sess.run([G_opt, L_C, step], {learning: True})
+                    print('\nD loss: {}\nG loss: {}\nC loss: {}'.format(D, G, C))
+                    if not N % 100:
+                        self.save('/Users/jkyl/Desktop/cyclegan_{}.h5'.format(
+                            str(N).zfill(8)))
         except:
             coord.request_stop()
             time.sleep(1)
@@ -136,8 +136,8 @@ class CycleGanModel(BaseModel):
 
                 
 if __name__ == '__main__':
-    m = CycleGanModel(32, hidden_dim=64)
-    m.train('/home/paperspace/data/cifar100/A', 
-            '/home/paperspace/data/cifar100/B',
-            lambda_cyc=1, lambda_gp=10,
-            batch_size=64, d_step=2)
+    m = CycleGanModel(32, hidden_dim=32)
+    m.train('/Users/jkyl/data/cifar100/A', 
+            '/Users/jkyl/data/cifar100/B',
+            lambda_c=0.5, lambda_g=-0.5,
+            batch_size=4, d_step=2)
