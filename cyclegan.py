@@ -82,7 +82,7 @@ class CycleGanModel(BaseModel):
         interpolates = [B + alpha[0]*(self.G_A(A) - B), A + alpha[1]*(self.G_B(B) - A)]
         gradients = [tf.gradients(self.D_B(i), [i]) for i in interpolates]
         slopes = [tf.sqrt(tf.reduce_sum(tf.square(g), axis=(1, 2, 3))) for g in gradients]
-        return tf.reduce_sum([tf.reduce_mean((s-1.)**2) for s in slopes])
+        return tf.reduce_mean([(s-1.)**2 for s in slopes])
         
     
     def train(self, input_A, input_B,
