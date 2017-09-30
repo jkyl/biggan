@@ -70,8 +70,8 @@ class CycleGanModel(BaseModel):
         return tf.reduce_mean((self.disc_B(x) - x)**2)
     
     def cycle_loss(self, A, B):
-        return tf.reduce_mean((A - self.G_B(self.G_A(A)))**2)\
-             + tf.reduce_mean((B - self.G_A(self.G_B(B)))**2)
+        return tf.reduce_mean((A - self.G_B(self.G_A(A)))**1)\
+             + tf.reduce_mean((B - self.G_A(self.G_B(B)))**1)
      
     def grad_penalty(self, A, B):
         alpha = tf.random_uniform(
@@ -80,7 +80,7 @@ class CycleGanModel(BaseModel):
             maxval=1.
         )
         interpolates = [B + alpha[0]*(self.G_A(A) - B), A + alpha[1]*(self.G_B(B) - A)]
-        gradients = [tf.gradients((self.D_B(i) - i)**2, [i]) for i in interpolates]
+        gradients = [tf.gradients(self.D_B(i), [i]) for i in interpolates]
         slopes = [tf.sqrt(tf.reduce_sum(tf.square(g), axis=(1, 2, 3))) for g in gradients]
         return tf.reduce_sum([tf.reduce_mean((s-1.)**2) for s in slopes])
         
@@ -139,5 +139,5 @@ if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=128)
     m.train('/home/paperspace/data/cifar100/A', 
             '/home/paperspace/data/cifar100/B',
-            lambda_cyc=10, lambda_gp=10,
+            lambda_cyc=0, lambda_gp=0,
             batch_size=64, d_step=5)
