@@ -70,8 +70,8 @@ class CycleGanModel(BaseModel):
         return tf.reduce_mean((self.disc_B(x) - x)**2)
     
     def cycle_loss(self, A, B):
-        return tf.reduce_mean((A - self.G_B(self.G_A(A)))**1)\
-             + tf.reduce_mean((B - self.G_A(self.G_B(B)))**1)
+        return tf.reduce_mean(tf.abs(A - self.G_B(self.G_A(A)))**1)\
+             + tf.reduce_mean(tf.abs(B - self.G_A(self.G_B(B)))**1)
      
     def grad_penalty(self, A, B):
         alpha = tf.random_uniform(
