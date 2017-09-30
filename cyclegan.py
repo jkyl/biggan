@@ -24,7 +24,7 @@ def Pix2PixModel(img_size, kernel_size=3, hidden_dim=128,
     for i in range(int(np.log2(img_size))):
         x = DilatedDenseConv2D(x, kernel_size, hidden_dim,
                                activation, name=name+'_conv2D-'+str(i))
-    out = tf.keras.layers.Conv2D(3, 1, activation='tanh', name=name+'_out')(x)
+    out = tf.keras.layers.Conv2D(3, 1, activation=None, name=name+'_out')(x)
     return tf.keras.models.Model(inp, out, name=name)
 
 class BaseModel(tf.keras.models.Model):
@@ -73,40 +73,35 @@ class CycleGanModel(BaseModel):
         return tf.reduce_mean([
             tf.abs(A - self.G_B(self.G_A(A)))**norm,
             tf.abs(B - self.G_A(self.G_B(B)))**norm])
-     
-    #def grad_penalty(self, A, B):
-    #    alpha = tf.random_uniform(
-    #        shape=(2, tf.shape(A)[0], 1, 1, 1),
-    #        minval=0.,
-    #        maxval=1.
-    #    )
-    #    interpolates = [B + alpha[0]*(self.G_A(A) - B), A + alpha[1]*(self.G_B(B) - A)]
-    #    gradients = [tf.gradients(self.D_B(i), [i]) for i in interpolates]
-    #    slopes = [tf.sqrt(tf.reduce_sum(tf.square(g), axis=(1, 2, 3))) for g in gradients]
-    #    return tf.reduce_mean([(s-1.)**2 for s in slopes])
-        
+    
+    def M(self, L_D, L_G, gamma=0.5):
+        return L_D + tf.abs(gamma*L_D - L_G)
+    
+    def update_kt(self, kt, eta, L_D, L_G, gamma=0.5):
+        return tf.assign(kt, tf.clip_by_value(
+            kt + eta*(gamma*L_D - L_G), 0, 1))
     
     def train(self, input_A, input_B,
-              lambda_c=1, lambda_g=-0.1,
-              batch_size=4, d_step=2):
+              output='/home/paperspace/training/cyclegan',
+              lambda_c=1, k_0=0, eta=1, gamma=.75,
+              batch_size=4):
         ''''''
-        
         with tf.variable_scope('Input'):
             
             coord = tf.train.Coordinator()
             step = tf.Variable(0, dtype=tf.int32, name='global_step')
-            learning = tf.keras.backend.learning_phase()
             A, B = [self.stream_input(i, self.img_size, batch_size) 
                     for i in (input_A, input_B)]
+            kt = tf.Variable(k_0, dtype=tf.float32, name='kt')
         
         with tf.variable_scope('Optimizer'):
 
             L_D = self.L_D(A, B)
             L_C = self.L_C(A, B)
             L_G = self.L_D(self.G_A(A), self.G_B(B))
-            
-            L_D_tot = lambda_g*L_G + L_D
-            L_G_tot = lambda_c*L_C + L_G
+
+            L_D_tot = L_D - kt*L_G
+            L_G_tot = L_G + lambda_c*L_C
 
             W_D = self.disc_A.trainable_weights + self.disc_B.trainable_weights
             W_G = self.gen_A.trainable_weights + self.gen_B.trainable_weights
@@ -114,30 +109,32 @@ class CycleGanModel(BaseModel):
             D_opt = tf.train.AdamOptimizer(1e-4).minimize(L_D_tot, var_list=W_D)
             G_opt = tf.train.AdamOptimizer(1e-4).minimize(L_G_tot, var_list=W_G,
                                                           global_step=step)
+            
+            D_opt = tf.group(D_opt, self.update_kt(kt, eta, L_D, L_G, gamma))
+            M = self.M(L_D, L_G, gamma)
+            
         try:
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
                 tf.train.start_queue_runners(sess=sess, coord=coord)
-                self.save('/Users/jkyl/Desktop/cyclegan_{}.h5'.format(
-                    '0'.zfill(8)))
+                self.save(os.path.join(output, 
+                    'cyclegan_{}.h5'.format('0'.zfill(8))))
                 self.graph.finalize()
                 while not coord.should_stop():
-                    for _ in range(d_step):
-                        _, D, G = sess.run([D_opt, L_D, L_G], {learning: True})
-                    _, C, N = sess.run([G_opt, L_C, step], {learning: True})
-                    print('\nD loss: {}\nG loss: {}\nC loss: {}'.format(D, G, C))
-                    if not N % 100:
-                        self.save('/Users/jkyl/Desktop/cyclegan_{}.h5'.format(
-                            str(N).zfill(8)))
+                    _, D, G, k, m = sess.run([D_opt, L_D, L_G, kt, M])
+                    _, C, n = sess.run([G_opt, L_C, step])
+                    print('\nD loss: {}\nG loss: {}\nC loss: {}\nM: {}\nk_{}: {}'\
+                          .format(D, G, C, m, n, k))
+                    if not n % 10000:
+                        self.save(os.path.join(output, 
+                            'cyclegan_{}.h5'.format(str(n).zfill(8))))
         except:
             coord.request_stop()
             time.sleep(1)
             raise
-
                 
 if __name__ == '__main__':
-    m = CycleGanModel(32, hidden_dim=32)
-    m.train('/Users/jkyl/data/cifar100/A', 
-            '/Users/jkyl/data/cifar100/B',
-            lambda_c=0.5, lambda_g=-0.5,
-            batch_size=4, d_step=2)
+    m = CycleGanModel(32, hidden_dim=128)
+    m.train('/home/paperspace/data/cifar100/A', 
+            '/home/paperspace/data/cifar100/B',
+            lambda_c=0, gamma=1, eta=0.01, batch_size=64)
