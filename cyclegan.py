@@ -64,10 +64,10 @@ class CycleGanModel(BaseModel):
         return self.gen_B(x)
     
     def D_A(self, x):
-        return tf.reduce_mean((tf.tanh(self.disc_A(x)) - x)**2)
+        return tf.reduce_mean((tf.tanh(self.disc_A(x))) - tf.tanh(x))**2)
     
     def D_B(self, x):
-        return tf.reduce_mean((tf.tanh(self.disc_B(x)) - x)**2)
+        return tf.reduce_mean((tf.tanh(self.disc_B(x))) - tf.tanh(x))**2)
     
     def cycle_loss(self, A, B):
         return tf.reduce_mean(tf.abs(A - self.G_B(self.G_A(A)))**1)\
