@@ -102,7 +102,6 @@ class CycleGanModel(BaseModel):
             L_GP = self.grad_penalty(A, B)
             L_D = self.D_A(A) + self.D_B(B)\
                 - self.D_A(self.G_B(B)) - self.D_B(self.G_A(A))
-                
             L_D_tot = lambda_gp*L_GP + L_D
 
             L_C = self.cycle_loss(A, B)
@@ -121,7 +120,7 @@ class CycleGanModel(BaseModel):
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
                 tf.train.start_queue_runners(sess=sess, coord=coord)
-                self.save('/Users/jkyl/Desktop/cyclegan_{}.h5'.format(
+                self.save('/home/paperspace/Desktop/cyclegan_{}.h5'.format(
                     '0'.zfill(8)))
                 self.graph.finalize()
                 while not coord.should_stop():
@@ -130,7 +129,7 @@ class CycleGanModel(BaseModel):
                     _, c, n = sess.run([G_opt, L_C, step])
                     print('\nD loss: {}\nC loss: {}\nGP loss: {}'.format(l, c, g))
                     if not n % 100:
-                        self.save('/Users/jkyl/Desktop/cyclegan_{}.h5'.format(
+                        self.save('/home/paperspace/Desktop/cyclegan_{}.h5'.format(
                             str(n).zfill(8)))
         except:
             coord.request_stop()
@@ -140,7 +139,7 @@ class CycleGanModel(BaseModel):
                 
 if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=32)
-    m.train('/Users/jkyl/data/cifar100/A', 
-            '/Users/jkyl/data/cifar100/B',
+    m.train('/home/paperspace/data/cifar100/A', 
+            '/home/paperspace/data/cifar100/B',
             lambda_cyc=1, lambda_gp=10,
             batch_size=4, d_step=5)
