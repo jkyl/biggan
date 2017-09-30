@@ -111,11 +111,9 @@ class CycleGanModel(BaseModel):
             W_D = self.disc_A.trainable_weights + self.disc_B.trainable_weights
             W_G = self.gen_A.trainable_weights + self.gen_B.trainable_weights
         
-            D_opt = tf.train.AdamOptimizer(1e-4,
-                    beta1=0, beta2=0.9).minimize(L_D_tot, var_list=W_D)
-            G_opt = tf.train.AdamOptimizer(1e-4,
-                    beta1=0, beta2=0.9).minimize(L_G_tot, var_list=W_G,
-                                                 global_step=step)
+            D_opt = tf.train.AdamOptimizer().minimize(L_D_tot, var_list=W_D)
+            G_opt = tf.train.AdamOptimizer().minimize(L_G_tot, var_list=W_G,
+                                                      global_step=step)
         try:
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
@@ -142,4 +140,4 @@ if __name__ == '__main__':
     m.train('/home/paperspace/data/cifar100/A', 
             '/home/paperspace/data/cifar100/B',
             lambda_cyc=10, lambda_gp=10,
-            batch_size=64, d_step=5)
+            batch_size=256, d_step=5)
