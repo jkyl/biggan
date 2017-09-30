@@ -141,5 +141,5 @@ if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=32)
     m.train('/home/paperspace/data/cifar100/A', 
             '/home/paperspace/data/cifar100/B',
-            lambda_cyc=1, lambda_gp=10,
-            batch_size=4, d_step=5)
+            lambda_cyc=10, lambda_gp=10,
+            batch_size=512, d_step=5)
