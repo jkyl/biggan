@@ -111,9 +111,9 @@ class CycleGanModel(BaseModel):
             W_D = self.disc_A.trainable_weights + self.disc_B.trainable_weights
             W_G = self.gen_A.trainable_weights + self.gen_B.trainable_weights
         
-            D_opt = tf.train.AdamOptimizer().minimize(L_D_tot, var_list=W_D)
-            G_opt = tf.train.AdamOptimizer().minimize(L_G_tot, var_list=W_G,
-                                                      global_step=step)
+            D_opt = tf.train.AdamOptimizer(2e-4).minimize(L_D_tot, var_list=W_D)
+            G_opt = tf.train.AdamOptimizer(2e-4).minimize(L_G_tot, var_list=W_G,
+                                                          global_step=step)
         try:
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
