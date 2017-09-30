@@ -23,7 +23,7 @@ def Pix2PixModel(img_size, kernel_size=3, hidden_dim=128,
     for i in range(int(np.log2(img_size))):
         x = DilatedDenseConv2D(x, kernel_size, hidden_dim,
                                activation, name=name+'_DDconv2D-'+str(i))
-    out = tf.keras.layers.Conv2D(3, 1, activation=None, name=name+'_out')(x)
+    out = tf.keras.layers.Conv2D(3, 1, activation='tanh', name=name+'_out')(x)
     return tf.keras.models.Model(inp, out, name=name)
 
 class BaseModel(tf.keras.models.Model):
