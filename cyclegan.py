@@ -120,7 +120,7 @@ class CycleGanModel(BaseModel):
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
                 tf.train.start_queue_runners(sess=sess, coord=coord)
-                self.save('/home/paperspace/Desktop/cyclegan_{}.h5'.format(
+                self.save('/home/paperspace/training/cyclegan_{}.h5'.format(
                     '0'.zfill(8)))
                 self.graph.finalize()
                 while not coord.should_stop():
@@ -129,7 +129,7 @@ class CycleGanModel(BaseModel):
                     _, c, n = sess.run([G_opt, L_C, step])
                     print('\nD loss: {}\nC loss: {}\nGP loss: {}'.format(l, c, g))
                     if not n % 100:
-                        self.save('/home/paperspace/Desktop/cyclegan_{}.h5'.format(
+                        self.save('/home/paperspace/training/cyclegan_{}.h5'.format(
                             str(n).zfill(8)))
         except:
             coord.request_stop()
