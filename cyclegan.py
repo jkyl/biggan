@@ -140,4 +140,4 @@ if __name__ == '__main__':
     m.train('/home/paperspace/data/cifar100/A', 
             '/home/paperspace/data/cifar100/B',
             lambda_cyc=10, lambda_gp=10,
-            batch_size=256, d_step=5)
+            batch_size=64, d_step=5)
