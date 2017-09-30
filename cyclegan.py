@@ -136,7 +136,7 @@ class CycleGanModel(BaseModel):
 
                 
 if __name__ == '__main__':
-    m = CycleGanModel(32, hidden_dim=32)
+    m = CycleGanModel(32, hidden_dim=256)
     m.train('/home/paperspace/data/cifar100/A', 
             '/home/paperspace/data/cifar100/B',
             lambda_cyc=10, lambda_gp=10,
