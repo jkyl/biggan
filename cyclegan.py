@@ -29,21 +29,75 @@ def Pix2PixModel(img_size, kernel_size=3, hidden_dim=128,
 
 class BaseModel(tf.keras.models.Model):
     ''''''
-    def stream_input(self, input_dir, img_size, batch_size):
+    def stream_input(self, input_dirs, img_size, batch_size):
         ''''''
-        pngs = glob.glob(os.path.join(input_dir, '*.png'))
-        t_png = tf.train.string_input_producer(pngs)
         reader = tf.WholeFileReader()
-        _, read = reader.read(t_png)
-        decoded = tf.image.decode_png(read)
-        rescaled = (tf.cast(decoded, tf.float32) - 127.5) / 127.5
-        #resized = tf.image.resize_bicubic(rescaled, [img_size, img_size])
-        rescaled.set_shape((img_size, img_size, 3))
+        if type(input_dirs) == str:
+            input_dirs = [input_dirs]
+        x = []
+        for i in input_dirs:
+            pngs = glob.glob(os.path.join(i, '*.png'))
+            t_png = tf.train.string_input_producer(pngs)
+            _, read = reader.read(t_png)
+            decoded = tf.image.decode_png(read)
+            rescaled = self.preproc_img(decoded)
+            #resized = tf.image.resize_bicubic(rescaled, [img_size, img_size])
+            rescaled.set_shape((img_size, img_size, 3))
+            x.append(rescaled)
         return tf.train.shuffle_batch_join(
-            [[rescaled]], 
-            batch_size=batch_size, 
+            [x], batch_size=batch_size, 
             capacity=batch_size, 
             min_after_dequeue=0)
+
+    
+    def stage_data(self, batch, memory_gb=1, n_threads=4):
+        ''''''
+        with tf.device('/gpu:0'):
+            dtypes = [t.dtype for t in batch]
+            shapes = [t.get_shape() for t in batch]
+            SA = StagingArea(dtypes, shapes=shapes, memory_limit=memory_gb*1e9)
+            get, put, clear = SA.get(), SA.put(batch), SA.clear()
+        tf.train.add_queue_runner(
+            tf.train.QueueRunner(queue=SA, enqueue_ops=[put]*n_threads, 
+                                 close_op=clear, cancel_op=clear))
+        return get
+
+    def make_summary(self, output_path, img_dict={},
+                     scalar_dict={}, text_dict={}, n_images=1):
+        ''''''
+        summaries = []
+        for k, v in img_dict.items():
+            summaries.append(tf.summary.image(k, v, n_images))
+        for k, v in scalar_dict.items():
+            summaries.append(tf.summary.scalar(k, v))
+        for k, v in text_dict.items():
+            summaries.append(tf.summary.text(k, v))
+        summary_op = tf.summary.merge_all()
+        summary_writer = tf.summary.FileWriter(
+            output_path, graph=self.graph)
+        return summary_op, summary_writer
+    
+    def save_h5(self, output_path, n):
+        ''''''
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
+        self.save(os.path.join(
+            output_path, 'ckpt_update-{}.h5'\
+            .format(str(int(n)).zfill(10))))
+        
+    def preproc_img(self, img):
+        ''''''
+        img = tf.cast(img, tf.float32)
+        img -= 127.5
+        img /= 127.5
+        return img
+
+    def postproc_img(self, img):
+        ''''''
+        img = tf.clip_by_value(img, -1, 1)
+        img *= 127.5
+        img += 127.5
+        return tf.cast(img, tf.uint8)
 
 class CycleGanModel(BaseModel):
     ''''''
@@ -109,16 +163,27 @@ class CycleGanModel(BaseModel):
             D_opt = tf.train.AdamOptimizer(1e-4).minimize(L_D_tot, var_list=W_D)
             G_opt = tf.train.AdamOptimizer(1e-4).minimize(L_G_tot, var_list=W_G,
                                                           global_step=step)
-            
             D_opt = tf.group(D_opt, self.update_kt(kt, eta, L_D, L_G, gamma))
+
+        with tf.variable_scope('Summary'):
             M = self.M(L_D, L_G, gamma)
+            G_A_B = self.G_A(A)
+            G_B_A = self.G_B(B)
+            D_A, D_B = self.disc_A(A), self.disc_B(B)
+            imgs = dict([(i, self.postproc_img(eval(i))) for i in (
+                'A', 'B', 'G_A_B', 'G_B_A', 'D_A', 'D_B')])
+            scalars = dict([(i, eval(i)) for i in (
+                'M', 'L_D', 'L_D_tot', 'L_C', 'L_G', 'L_G_tot', 'kt')])
+
+        summary, writer = self.make_summary(output,
+            img_dict=imgs, scalar_dict=scalars, n_images=1)
+            
             
         try:
             with tf.Session() as sess:
                 sess.run(tf.global_variables_initializer())
                 tf.train.start_queue_runners(sess=sess, coord=coord)
-                self.save(os.path.join(output, 
-                    'cyclegan_{}.h5'.format('0'.zfill(8))))
+                self.save_h5(output, 0)
                 self.graph.finalize()
                 while not coord.should_stop():
                     _, D, G, k, m = sess.run([D_opt, L_D, L_G, kt, M])
@@ -126,15 +191,19 @@ class CycleGanModel(BaseModel):
                     print('\nD loss: {}\nG loss: {}\nC loss: {}\nM: {}\nk_{}: {}'\
                           .format(D, G, C, m, n, k))
                     if not n % 10000:
-                        self.save(os.path.join(output, 
-                            'cyclegan_{}.h5'.format(str(n).zfill(8))))
+                        self.save_h5(output, n)
+                    if not n % 25:
+                        s = sess.run(summary)
+                        writer.add_summary(s, n)
+                        writer.flush()
         except:
             coord.request_stop()
             time.sleep(1)
             raise
                 
 if __name__ == '__main__':
-    m = CycleGanModel(32, hidden_dim=128)
-    m.train('/home/paperspace/data/cifar100/A', 
-            '/home/paperspace/data/cifar100/B',
-            lambda_c=0, gamma=1, eta=0.01, batch_size=64)
+    m = CycleGanModel(32, hidden_dim=32)
+    m.train('/Users/jkyl/data/cifar100/A', 
+            '/Users/jkyl/data/cifar100/B',
+            output='output',
+            lambda_c=0, gamma=.9, eta=0.01, batch_size=1)
