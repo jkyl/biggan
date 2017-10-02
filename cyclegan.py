@@ -105,12 +105,12 @@ class CycleGanModel(BaseModel):
     def __init__(self, img_size, kernel_size=3, hidden_dim=128, activation='selu'):
         ''''''
         self.img_size = img_size
-        with tf.variable_scope('g'):
+        with tf.variable_scope('Generators'):
             self.gen_A, self.gen_B= generators = [
             Pix2PixModel(img_size, kernel_size, hidden_dim, activation,
                          name=['G_A', 'G_B'][i])
             for i in range(2)]
-        with tf.variable_scope('d'):
+        with tf.variable_scope('Discriminators'):
             self.disc_A, self.disc_B = discriminators = [
             Pix2PixModel(img_size, kernel_size, hidden_dim, activation,
                          name=['D_A', 'D_B'][i])
@@ -152,8 +152,8 @@ class CycleGanModel(BaseModel):
             
             coord = tf.train.Coordinator()
             step = tf.Variable(0, dtype=tf.int32, name='global_step')
-            A, B = [self.stream_input(i, self.img_size, batch_size) 
-                    for i in (input_A, input_B)]
+            A, B = self.stream_input([input_A, input_B],
+                                     self.img_size, batch_size) 
             kt = tf.Variable(k_0, dtype=tf.float32, name='kt')
         
         with tf.variable_scope('Optimizer'):
@@ -213,5 +213,5 @@ if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=32)
     m.train('/Users/jkyl/data/cifar100/A', 
             '/Users/jkyl/data/cifar100/B',
-            output='output/5x5',
-            lambda_c=0, gamma=.9, eta=0.01, batch_size=1)
+            output='output/5x5_lc0.1_gamma0.9',
+            lambda_c=0.1, gamma=0.9, eta=0.01, batch_size=1)
