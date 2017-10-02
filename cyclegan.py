@@ -24,7 +24,8 @@ def Pix2PixModel(img_size, kernel_size=3, hidden_dim=128,
     for i in range(int(np.log2(img_size))):
         x = DilatedDenseConv2D(x, kernel_size, hidden_dim,
                                activation, name=name+'_conv2D-'+str(i))
-    out = tf.keras.layers.Conv2D(3, 1, activation=None, name=name+'_out')(x)
+    out = tf.keras.layers.Conv2D(3, 5, activation=None, padding='same',
+                                 name=name+'_out')(x)
     return tf.keras.models.Model(inp, out, name=name)
 
 class BaseModel(tf.keras.models.Model):
@@ -104,12 +105,19 @@ class CycleGanModel(BaseModel):
     def __init__(self, img_size, kernel_size=3, hidden_dim=128, activation='selu'):
         ''''''
         self.img_size = img_size
-        self.gen_A, self.gen_B, self.disc_A, self.disc_B = models = [
+        with tf.variable_scope('g'):
+            self.gen_A, self.gen_B= generators = [
             Pix2PixModel(img_size, kernel_size, hidden_dim, activation,
-                         name=['G_A', 'G_B', 'D_A', 'D_B'][i])
-            for i in range(4)]
+                         name=['G_A', 'G_B'][i])
+            for i in range(2)]
+        with tf.variable_scope('d'):
+            self.disc_A, self.disc_B = discriminators = [
+            Pix2PixModel(img_size, kernel_size, hidden_dim, activation,
+                         name=['D_A', 'D_B'][i])
+            for i in range(2)]
         super(BaseModel, self).__init__(
-            [m.input for m in models], [m.output for m in models])
+            [m.input for m in generators + discriminators],
+            [m.output for m in generators + discriminators])
         self.summary()
         
     def G_A(self, x):
@@ -205,5 +213,5 @@ if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=32)
     m.train('/Users/jkyl/data/cifar100/A', 
             '/Users/jkyl/data/cifar100/B',
-            output='output',
+            output='output/5x5',
             lambda_c=0, gamma=.9, eta=0.01, batch_size=1)
