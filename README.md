@@ -1,2 +1,2 @@
-# Dilated Dense CycleGAN
-- requires TensorFlow >= 1.4
+# Boundary Equilibrium CycleGAN
+- Requires TensorFlow >= 1.4
