@@ -14,7 +14,7 @@ class CycleGanModel(BaseModel):
         with tf.variable_scope('Generators'):
             self.G_A, self.G_B = generators = [
             BEGAN_unet(img_size, 3, kernel_size, hidden_dim, activation,
-                       n_per_block=1, name=['G_A', 'G_B'][i])
+                       n_per_block=2, name=['G_A', 'G_B'][i])
             #DilatedDenseNet(img_size, 3, kernel_size, hidden_dim, activation,
             #                name=['G_A', 'G_B'][i])
             for i in range(2)]
@@ -45,8 +45,8 @@ class CycleGanModel(BaseModel):
             kt + eta*(gamma*L_D - L_G), 0, 1))
     
     def train(self, input_A, input_B, output,
-              lambda_c=1, k_0=0, eta=1, gamma=.75,
-              norm=1, batch_size=4):
+              lambda_c=1, k_0=0, eta=0.01, gamma=0.5,
+              norm=1, batch_size=1):
         ''''''
         with tf.variable_scope('Input'):
             
@@ -104,7 +104,7 @@ class CycleGanModel(BaseModel):
             kt_B_update = self.update_kt(kt_B, eta, L_D_B, L_G_B, gamma)
 
             # Group them with D optimizer
-            G_opt = tf.group(D_opt, kt_A_update, kt_B_update)
+            D_opt = tf.group(D_opt, kt_A_update, kt_B_update)
             
         with tf.variable_scope('Summary'):
             imgs = dict([(i, self.postproc_img(eval(i))) for i in (
@@ -147,5 +147,5 @@ if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=32)
     m.train('/Users/jkyl/data/mnist_png/training', 
             '/Users/jkyl/data/cifar100/train',
-            'output/UNET_gamma-1_cycle0_bs1',
-            lambda_c=0, gamma=1, eta=0.01, k_0=0, batch_size=1)
+            'output/UNET_gamma0.5_cycle0.1_bs1',
+            lambda_c=0.1, gamma=0.5, eta=0.01, k_0=0, norm=1, batch_size=1)
