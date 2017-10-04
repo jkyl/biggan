@@ -5,7 +5,8 @@ from models import *
 
 class CycleGanModel(BaseModel):
     ''''''
-    def __init__(self, img_size, kernel_size=3, hidden_dim=128, activation='selu'):
+    def __init__(self, img_size, kernel_size=3, hidden_dim=128,
+                 activation='selu', name=None):
         ''''''
         self.img_size = img_size
         
@@ -13,8 +14,6 @@ class CycleGanModel(BaseModel):
             self.G_A, self.G_B = generators = [
             BEGAN_unet(img_size, 3, kernel_size, hidden_dim, activation,
                        n_per_block=2, name=['G_A', 'G_B'][i])
-            #DilatedDenseNet(img_size, 3, kernel_size, hidden_dim, activation,
-            #                name=['G_A', 'G_B'][i])
             for i in range(2)]
             self.G_A.summary()
             
@@ -27,7 +26,7 @@ class CycleGanModel(BaseModel):
             
         super(BaseModel, self).__init__(
             [m.input for m in generators + discriminators],
-            [m.output for m in generators + discriminators])
+            [m.output for m in generators + discriminators], name=name)
         self.summary()
         
     def L(self, x, y, norm=1):
@@ -44,7 +43,7 @@ class CycleGanModel(BaseModel):
     
     def train(self, input_A, input_B, output,
               lambda_c=1, k_0=0, eta=0.01, gamma=0.5,
-              norm=1, batch_size=1):
+              norm=1, batch_size=1, epoch_size=1000):
         ''''''
         with tf.variable_scope('Input'):
             
@@ -127,15 +126,18 @@ class CycleGanModel(BaseModel):
                 tf.train.start_queue_runners(sess=sess, coord=coord)
                 self.save_h5(output, 0)
                 self.graph.finalize()
+                epoch = 1
                 while not coord.should_stop():
-                    sess.run([D_opt])
-                    n = sess.run([G_opt, step])[1]
-                    if not n % 10000:
-                        self.save_h5(output, n)
-                    if not n % 25:
-                        s = sess.run(summary)
-                        writer.add_summary(s, n)
-                        writer.flush()
+                    print('Epoch '+str(epoch)); epoch +=1 
+                    for _ in tqdm.trange(epoch_size):
+                        sess.run([D_opt])
+                        n = sess.run([G_opt, step])[1]
+                        if not n % 10000:
+                            self.save_h5(output, n)
+                        if not n % 25:
+                            s = sess.run(summary)
+                            writer.add_summary(s, n)
+                            writer.flush()
         except:
             coord.request_stop()
             time.sleep(1)
