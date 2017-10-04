@@ -1,6 +1,7 @@
 import tensorflow as tf
 import numpy as np
 import time
+import tqdm
 from models import *
 
 class CycleGanModel(BaseModel):
@@ -14,7 +15,7 @@ class CycleGanModel(BaseModel):
             self.G_A, self.G_B = generators = [
             BEGAN_unet(img_size, 3, kernel_size, hidden_dim, activation,
                        n_per_block=2, name=['G_A', 'G_B'][i])
-            for i in range(2)]
+                for i in (0, 1)]
             self.G_A.summary()
             
         with tf.variable_scope('Discriminators'):
@@ -22,7 +23,7 @@ class CycleGanModel(BaseModel):
             BEGAN_autoencoder(img_size, 3, kernel_size, hidden_dim, activation, 
                               n_per_block=2, concat=True,
                               name=['D_A', 'D_B'][i])
-            for i in range(2)]
+                for i in (0, 1)]
             
         super(BaseModel, self).__init__(
             [m.input for m in generators + discriminators],
@@ -146,6 +147,6 @@ class CycleGanModel(BaseModel):
 if __name__ == '__main__':
     m = CycleGanModel(32, hidden_dim=32)
     m.train('/Users/jkyl/data/mnist_png/training', 
-            '/Users/jkyl/data/cifar100/train',
-            'output/UNET_gamma0.5_cycle0.1_bs1',
-            lambda_c=0.1, gamma=0.5, eta=0.01, k_0=0, norm=1, batch_size=1)
+            '/Users/jkyl/data/img_align_celeba',
+            'output/celeba_mnist_UNET_gamma1_cycle0_bs4_l2',
+            lambda_c=0, gamma=1, eta=0.01, k_0=0, norm=2, batch_size=4)

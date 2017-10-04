@@ -140,6 +140,8 @@ class BaseModel(tf.keras.models.Model):
         x = []
         for i in input_dirs:
             pngs = glob.glob(os.path.join(i, '*/*.png'))
+            jpgs = glob.glob(os.path.join(i, '*.jpg'))
+            pngs += jpgs
             t_png = tf.train.string_input_producer(pngs)
             _, read = reader.read(t_png)
             decoded = tf.image.decode_png(read)
