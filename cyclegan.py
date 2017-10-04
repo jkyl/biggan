@@ -1,8 +1,6 @@
 import tensorflow as tf
 import numpy as np
 import time
-import glob 
-import os
 from models import *
 
 class CycleGanModel(BaseModel):
