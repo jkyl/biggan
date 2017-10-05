@@ -139,7 +139,7 @@ class BaseModel(tf.keras.models.Model):
             input_dirs = [input_dirs]
         x = []
         for i in input_dirs:
-            pngs = glob.glob(os.path.join(i, '*/*.png'))
+            pngs = glob.glob(os.path.join(i, '*.png'))
             jpgs = glob.glob(os.path.join(i, '*.jpg'))
             pngs += jpgs
             t_png = tf.train.string_input_producer(pngs)
@@ -207,3 +207,7 @@ class BaseModel(tf.keras.models.Model):
         img *= 127.5
         img += 127.5
         return tf.cast(img, tf.uint8)
+    
+    def decay(self, lr, step, halflife=np.inf):
+        ''''''
+        return lr * 0.5**tf.floor(tf.cast(step, tf.float32) / tf.cast(halflife, tf.float32))

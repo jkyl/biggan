@@ -42,7 +42,8 @@ class CycleGanModel(BaseModel):
     
     def train(self, input_A, input_B, output,
               lambda_c=1, k_0=0, eta=0.01, gamma=0.5,
-              norm=1, batch_size=1, epoch_size=1000):
+              norm=1, batch_size=1, epoch_size=1000,
+              lr=1e-4, decay=2e6):
         ''''''
         with tf.variable_scope('Input'):
             
@@ -92,9 +93,10 @@ class CycleGanModel(BaseModel):
             W_G = self.G_A.trainable_weights + self.G_B.trainable_weights
 
             # Optimizers
-            D_opt = tf.train.AdamOptimizer(1e-4).minimize(L_D_tot, var_list=W_D)
-            G_opt = tf.train.AdamOptimizer(1e-4).minimize(L_G_tot, var_list=W_G,
-                                                          global_step=step)
+            lr = self.decay(lr, step, decay)
+            D_opt = tf.train.AdamOptimizer(lr).minimize(L_D_tot, var_list=W_D)
+            G_opt = tf.train.AdamOptimizer(lr).minimize(L_G_tot, var_list=W_G,
+                                                        global_step=step)
             # Feedback updates
             kt_A_update = self.update_kt(kt_A, eta, L_D_A, L_G_A, gamma)
             kt_B_update = self.update_kt(kt_B, eta, L_D_B, L_G_B, gamma)
@@ -110,7 +112,7 @@ class CycleGanModel(BaseModel):
                 'D_A_G', 'D_B_G',
                 'G_A_B_A', 'G_B_A_B')])
             scalars = dict([(i, eval(i)) for i in (
-                'M',
+                'M', 'lr',
                 'L_D_A', 'L_D_B',
                 'L_G_A', 'L_G_B',
                 'L_C_A', 'L_C_B',
