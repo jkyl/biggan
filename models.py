@@ -25,7 +25,7 @@ def DilatedDenseNet(size, channels=3, kernel_size=3, hidden_dim=128,
 
 def BEGAN_decoder(size, channels=3, kernel_size=3,
                   z_dim=128, x_dim=128, activation='elu',
-                  n_per_block=2, concat=True, name=None):
+                  n_per_block=2, concat=True, tanh=False, name=None):
     ''''''
     z = x = tf.keras.layers.Input((z_dim,), name=name+'_in')
     x = tf.keras.layers.Dense(8*8*x_dim, name=name+'_dense')(x)
@@ -37,14 +37,17 @@ def BEGAN_decoder(size, channels=3, kernel_size=3,
                                 activation=activation, padding='same',
                                 name=name+'_conv2D-{}.{}'.format(i+1, j+1))(x)
         if i < depth - 1:
-            x = tf.keras.layers.UpSampling2D(size=(2, 2))(x)
+            x = tf.keras.layers.UpSampling2D(size=(2, 2),
+                                name=name+'_upsampling-'+str(i))(x)
             if concat:
-                h0 = tf.keras.layers.UpSampling2D(size=(2, 2))(h0)
+                h0 = tf.keras.layers.UpSampling2D(size=(2, 2),
+                                name=name+'_skip-upsampling-'+str(i))(h0)
                 x = tf.keras.layers.concatenate([x, h0], name=name+'-skip'+str(i))
 
     x = tf.keras.layers.Conv2D(channels, kernel_size, activation=None,
                                padding='same', name=name+'_out')(x)
-    return tf.keras.models.Model(inputs=z, outputs=x, name=name)
+    out = tf.keras.layers.Activation('tanh')(x) if tanh else x
+    return tf.keras.models.Model(inputs=z, outputs=out, name=name)
 
 def BEGAN_encoder(size, channels=3, kernel_size=3,
                   z_dim=128, x_dim=128, activation='elu',
@@ -74,21 +77,21 @@ def BEGAN_encoder(size, channels=3, kernel_size=3,
 
 def BEGAN_autoencoder(size, channels=3, kernel_size=3,
                       z_dim=128, activation='elu',
-                      n_per_block=2, concat=True, name=None):
+                      n_per_block=2, concat=True, tanh=False, name=None):
     ''''''
-    inp = x = tf.keras.layers.Input((size, size, channels))
+    inp = x = tf.keras.layers.Input((size, size, channels), name=name+'_in')
     x = BEGAN_encoder(size, channels=channels, kernel_size=kernel_size,
                       z_dim=z_dim, x_dim=z_dim, activation=activation,
                       n_per_block=n_per_block, name=name+'_enc')(x)
     x = BEGAN_decoder(size, channels=channels, kernel_size=kernel_size,
                       z_dim=z_dim, x_dim=z_dim, activation=activation,
                       n_per_block=n_per_block,
-                      concat=concat, name=name+'_dec')(x)
+                      concat=concat, tanh=tanh, name=name+'_dec')(x)
     return tf.keras.models.Model(inp, x)
 
 def BEGAN_unet(size, channels=3, kernel_size=3,
                z_dim=128, activation='elu',
-               n_per_block=2, name=None):
+               n_per_block=2, tanh=False, name=None):
     ''''''
     skips = []
     inp = x = tf.keras.layers.Input((size, size, channels), name=name+'_in')
@@ -111,39 +114,67 @@ def BEGAN_unet(size, channels=3, kernel_size=3,
                     name=name+'_conv2D-{}.{}-enc'.format(i+1, j+1))(x)
 
     x = tf.keras.layers.Flatten()(x)
-    x = tf.keras.layers.Dense(z_dim, name=name+'_dense1')(x)
-    x = tf.keras.layers.Dense(8*8*z_dim, name=name+'_dense2')(x)
+    x = code = tf.keras.layers.Dense(z_dim, name=name+'_dense-1')(x)
+    x = tf.keras.layers.Dense(8*8*z_dim, name=name+'_dense-2')(x)
     x = tf.keras.layers.Reshape((8, 8, z_dim))(x)
     
     for i in range(depth):
         x = tf.keras.layers.concatenate([x, skips.pop(-1)], axis=-1,
-                                        name=name+'_skip'+str(i))
+                                        name=name+'_skip-'+str(i))
         for j in range(n_per_block):
             x = tf.keras.layers.Conv2D(z_dim, kernel_size,
-                                activation=activation, padding='same',
-                                name=name+'_conv2D-{}.{}-dec'.format(i+1, j+1))(x)
+                            activation=activation, padding='same',
+                            name=name+'_conv2D-{}.{}-dec'.format(i+1, j+1))(x)
         if i < depth - 1:
-            x = tf.keras.layers.UpSampling2D(size=(2, 2))(x)
+            x = tf.keras.layers.UpSampling2D(size=(2, 2),
+                            name=name+'_upsampling-'+str(i))(x)
 
     x = tf.keras.layers.Conv2D(channels, kernel_size, activation=None,
                                padding='same', name=name+'_out')(x)
-    return tf.keras.models.Model(inputs=inp, outputs=x, name=name)
+    out = tf.keras.layers.Activation('tanh')(x) if tanh else x
+    return tf.keras.models.Model(inputs=inp, outputs=[x, code], name=name)
+
+def DCGAN_discriminator(size, channels, kernel_size=5, hidden_dim=64,
+                        activation='elu', batch_norm=True, name=None):
+    ''''''
+    inp = x = tf.keras.layers.Input(
+        (size, size, channels), name=name+'_in')
+    depth = int(np.log2(size // 4))
+    for i in range(depth):
+        x = tf.keras.layers.Conv2D(
+            hidden_dim*(2**i), kernel_size, activation=None,
+            strides=2, padding='same', name=name+'_conv2D-'+str(i))(x)
+        if batch_norm and i > 0:
+            x = tf.keras.layers.BatchNormalization(
+                epsilon=1e-5, momentum=0.9, name=name+'_bn-'+str(i))(x)
+        x = tf.keras.layers.Activation(
+            activation, name=name+'_'+activation+'-'+str(i))(x)
+    x = tf.keras.layers.Reshape(
+        (4*4*hidden_dim*(2**i),), name=name+'_reshape')(x)
+    out = tf.keras.layers.Dense(1, name=name+'_dense')(x)
+    return tf.keras.models.Model(inp, out, name=name)
     
 
 class BaseModel(tf.keras.models.Model):
     ''''''
-    def stream_input(self, input_dirs, img_size, batch_size):
+    def stream_input(self, input_dirs, img_size, batch_size,
+                     whitelist_extensions=['png', 'jpeg', 'jpg']):
         ''''''
         reader = tf.WholeFileReader()
         if type(input_dirs) == str:
             input_dirs = [input_dirs]
         x = []
         for i in input_dirs:
-            pngs = glob.glob(os.path.join(i, '*.png'))
-            jpgs = glob.glob(os.path.join(i, '*.jpg'))
-            pngs += jpgs
-            t_png = tf.train.string_input_producer(pngs)
-            _, read = reader.read(t_png)
+            imgs = []
+            for ext in whitelist_extensions:
+                for caps in (0, 1):
+                    for descend in (0, 1):
+                        pattern = '*/*.'+ext if descend else '*.'+ext
+                        pattern = pattern.upper() if caps else pattern.lower()
+                        pattern = os.path.join(i, pattern)
+                        imgs += glob.glob(pattern)
+            t = tf.train.string_input_producer(imgs)
+            _, read = reader.read(t)
             decoded = tf.image.decode_png(read)
             rescaled = self.preproc_img(decoded)
             resized = tf.image.resize_images(rescaled, [img_size, img_size])
