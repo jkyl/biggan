@@ -16,7 +16,6 @@ class CycleGanModel(BaseModel):
             BEGAN_unet(img_size, 3, kernel_size, hidden_dim, activation,
                        n_per_block=2, name=['G_A', 'G_B'][i])
                 for i in (0, 1)]
-            self.G_A.summary()
             
         with tf.variable_scope('Discriminators'):
             self.D_A, self.D_B = discriminators = [
@@ -28,7 +27,6 @@ class CycleGanModel(BaseModel):
         super(BaseModel, self).__init__(
             [m.input for m in generators + discriminators],
             [m.output for m in generators + discriminators], name=name)
-        self.summary()
         
     def L(self, x, y, norm=1):
         if norm not in (1, 2):
@@ -131,14 +129,15 @@ class CycleGanModel(BaseModel):
                 while not coord.should_stop():
                     print('Epoch '+str(epoch)); epoch +=1 
                     for _ in tqdm.trange(epoch_size):
-                        sess.run([D_opt])
                         n = sess.run([G_opt, step])[1]
-                        if not n % 10000:
-                            self.save_h5(output, n)
-                        if not n % 25:
-                            s = sess.run(summary)
+                        if n % 10:
+                            sess.run([D_opt])
+                        else:
+                            s = sess.run([D_opt, summary])[1]
                             writer.add_summary(s, n)
                             writer.flush()
+                        if not n % 10000:
+                            self.save_h5(output, n)
         except:
             coord.request_stop()
             time.sleep(1)
