@@ -1,5 +1,9 @@
 import tensorflow as tf
 import numpy as np
+import glob
+import tqdm
+import time
+import os
 
 LAYER_DEPTHS = [512, 512, 512, 256, 128, 64, 32, 16]
 
@@ -73,11 +77,11 @@ def NVIDIA_discriminator():
     # build model blocks, params shared between all paths
     blocks = [DownConvLayers(
         LAYER_DEPTHS[-(i+1)], n=2) for i in range(n_blocks)] + [
-        OutputLayers()]
+    OutputLayers()]
         
     # define all paths to the output
     outputs = []
-    for i in range(n_blocks):
+    for i in range(n_blocks+1):
         x = in_rgb[i]
         for block in blocks[i:]:
             for layer in block:
