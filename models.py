@@ -1,7 +1,95 @@
 import tensorflow as tf
 import numpy as np
+import tqdm
+import time
 import glob
 import os
+
+LAYER_DEPTHS = [512, 512, 512, 256, 128, 64, 32, 16] 
+INITIALIZER = tf.keras.initializers.he_normal()#RandomNormal(mean=0, stddev=1, seed=None)
+
+def InputFunc(z, initializer='glorot_normal'):
+    ''''''
+    x = tf.keras.layers.Dense(4*4*512, kernel_initializer=initializer)(z)
+    x = tf.keras.layers.LeakyReLU(0.2)(x)
+    x = tf.keras.layers.Reshape((4, 4, 512))(x)
+    x = tf.keras.layers.Conv2D(512, 3, padding='same', kernel_initializer=initializer)(x)
+    x = tf.keras.layers.LeakyReLU(0.2)(x)
+    x_rgb = tf.keras.layers.Conv2D(3, 1, padding='same', kernel_initializer=initializer)(x)
+    return x, x_rgb
+
+def UpConvFunc(x, dim, n=2, initializer='glorot_normal'):
+    ''''''
+    x = tf.keras.layers.UpSampling2D((2, 2))(x)
+    for i in range(n):
+        x = tf.keras.layers.Conv2D(dim, 3, padding='same', kernel_initializer=initializer)(x)
+        x = tf.keras.layers.LeakyReLU(0.2)(x)
+    x_rgb = tf.keras.layers.Conv2D(3, 1, padding='same', kernel_initializer=initializer)(x)
+    return x, x_rgb
+    
+def NVIDIA_generator(size=1024, initializer='glorot_normal'):
+    ''''''
+    n_blocks = int(np.log2(size//4))
+    z = tf.keras.layers.Input([512])
+    x, x_rgb = InputFunc(z, initializer=initializer)
+    outputs = [x_rgb]
+    for i in range(n_blocks):
+        dim = max(16, min(512, 2**(11-i)))
+        x, x_rgb = UpConvFunc(x, dim, n=2, initializer=initializer)
+        outputs.append(x_rgb)
+    return tf.keras.models.Model(z, outputs)
+
+def DownConvLayers(dim, n=2, initializer='glorot_normal'):
+    '''
+    This function returns a list of keras layers, not yet called on any input.
+    This is because we want to reuse the low-res layers on feature maps extracted
+    by the hi-res layers. 
+    '''
+    layers = []
+    for i in range(n):
+        s = 2 if i==n-1 else 1
+        d = max(16, min(512, dim*s))
+        conv = tf.keras.layers.Conv2D(
+            d, 3, padding='same', strides=s, 
+            kernel_initializer=initializer)
+        layers.append(conv)
+        layers.append(tf.keras.layers.LeakyReLU(0.2))
+    return layers
+
+def OutputLayers(initializer='glorot_normal'):
+    return [
+        tf.keras.layers.Conv2D(512, 3, padding='same', kernel_initializer=initializer),
+        tf.keras.layers.LeakyReLU(0.2),
+        tf.keras.layers.Conv2D(512, 4, padding='valid', kernel_initializer=initializer),
+        tf.keras.layers.LeakyReLU(0.2),
+        tf.keras.layers.Dense(1, kernel_initializer=initializer),
+        tf.keras.layers.Flatten()]
+
+def NVIDIA_discriminator(size=1024, initializer='glorot_normal'):
+    ''''''
+    n_blocks = int(np.log2(size//4))
+    sizes = [2**(2+i) for i in range(n_blocks+1)]
+    depths = [max(16, min(512, 2**(12-i))) for i in range(n_blocks+1)]
+
+    # construct input placeholders and project to hidden dim
+    inputs = [tf.keras.layers.Input((s, s, 3)) for s in sizes]
+    in_rgb = [tf.keras.layers.Conv2D(depths[i], 1, padding='same', 
+              kernel_initializer=initializer)(
+              inputs[i]) for i in range(n_blocks+1)]
+    
+    # build model backwards, then reverse
+    blocks = ([OutputLayers()] + [DownConvLayers(depths[i+1], n=2, initializer=initializer) 
+                                  for i in range(n_blocks)])[::-1]
+    # define all paths to the output
+    outputs = []
+    for i in range(n_blocks+1):
+        x = in_rgb[i]
+        for block in blocks[-(i+1):]:
+            for layer in block:
+                x = layer(x)
+        outputs.append(x)
+    output = tf.keras.layers.concatenate(outputs, axis=-1)
+    return tf.keras.models.Model(inputs, output)
 
 def DilatedDenseConv2D(x, hidden_dim=128, kernel_size=3,
                        activation='elu', name=None):
@@ -202,9 +290,11 @@ class BaseModel(tf.keras.models.Model):
                                  close_op=clear, cancel_op=clear))
         return get
 
-    def make_summary(self, output_path, img_dict={},
+    def make_summary(self, output_path, img_dict={}, graph=False,
                      scalar_dict={}, text_dict={}, n_images=1):
         ''''''
+        if not os.path.exists(output_path):
+            os.makedirs(output_path)
         summaries = []
         for k, v in img_dict.items():
             summaries.append(tf.summary.image(k, v, n_images))
@@ -214,7 +304,7 @@ class BaseModel(tf.keras.models.Model):
             summaries.append(tf.summary.text(k, v))
         summary_op = tf.summary.merge_all()
         summary_writer = tf.summary.FileWriter(
-            output_path, graph=self.graph)
+            output_path, graph=graph)
         return summary_op, summary_writer
     
     def save_h5(self, output_path, n):
@@ -242,3 +332,47 @@ class BaseModel(tf.keras.models.Model):
     def decay(self, lr, step, halflife=np.inf):
         ''''''
         return lr * 0.5**tf.floor(tf.cast(step, tf.float32) / tf.cast(halflife, tf.float32))
+
+    def blend(self, step, period=100., n_scales=9):
+        ''''''
+        scale = tf.range(n_scales, dtype=tf.float32)
+        state = tf.minimum(tf.cast(step, tf.float32) / tf.cast(period, tf.float32), n_scales)        
+        init = tf.clip_by_value(scale + 2 - state, 0, 1)
+        tri = 1 - tf.clip_by_value(tf.abs(scale + 1 - state), 0, 1)
+        ramp = tf.maximum(1 - (state - scale), 0)
+        tooth = ramp * (1 - tf.cast(tf.greater(ramp, 1), tf.float32))
+        blend = tf.concat([init[:1], tri[1:]], axis=0)
+        return tooth, blend, init
+    
+    def mask(self, mtx, blend):
+        ''''''
+        blended = mtx * blend
+        vector = tf.reduce_sum(blended, axis=-1)
+        scalar = tf.reduce_mean(vector)
+        return scalar
+    
+    def residual(self, xs_hat, blend):
+        ''''''
+        rv = xs_hat
+        for i, x in enumerate(xs_hat):
+            if i > 0:
+                up = xs_hat[i-1]
+                up = tf.image.resize_bilinear(up, tf.shape(up)[1:3]*2)
+                rv[i] = up*blend[i] + xs_hat[i]*(1-blend[i])
+        return rv
+                
+    def grad_penalty(self, xs, xs_hat, gamma=750):
+        '''gradient penalty from arxiv.org/pdf/1704.00028.pdf'''
+        alpha = tf.random_uniform(shape=[tf.shape(xs[0])[0],1,1,1])
+        interps = [(1-alpha)*xs[i] + alpha*xs_hat[i] for i in range(len(xs))]
+        preds = self.D(interps)
+        grads = [tf.gradients(preds, i)[0] for i in interps]
+        slopes = tf.stack([
+                     tf.sqrt(
+                         tf.reduce_sum(
+                             tf.square(g), 
+                         axis=[1, 2, 3])
+                     ) for g in grads], 
+                 axis=-1)
+        l2 = (slopes - gamma)**2 / gamma**2
+        return l2
