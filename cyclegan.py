@@ -1,153 +1,80 @@
+import tqdm, argparse
 import tensorflow as tf
-import numpy as np
-import time
-import tqdm
-from models import *
+import keras.backend as K
+from networks import *
+from data import *
 
-class CycleGanModel(BaseModel):
-    ''''''
-    def __init__(self, img_size, kernel_size=3, hidden_dim=128,
-                 activation='selu', name=None):
-        ''''''
-        self.img_size = img_size
-        
-        with tf.variable_scope('Generators'):
-            self.G_A, self.G_B = generators = [
-            BEGAN_unet(img_size, 3, kernel_size, hidden_dim, activation,
-                       n_per_block=2, name=['G_A', 'G_B'][i])
-                for i in (0, 1)]
-            
-        with tf.variable_scope('Discriminators'):
-            self.D_A, self.D_B = discriminators = [
-            BEGAN_autoencoder(img_size, 3, kernel_size, hidden_dim, activation, 
-                              n_per_block=2, concat=True,
-                              name=['D_A', 'D_B'][i])
-                for i in (0, 1)]
-            
-        super(BaseModel, self).__init__(
-            [m.input for m in generators + discriminators],
-            [m.output for m in generators + discriminators], name=name)
-        
-    def L(self, x, y, norm=1):
-        if norm not in (1, 2):
-            raise NotImplementedError
-        return tf.reduce_mean(tf.abs(x - y)**norm)
+class CycleGAN(object):
+  def __init__(self):
+    self.F, self.G, self.D_X, self.D_Y = (
+      CycleGAN_generator(), CycleGAN_generator(),
+      CycleGAN_discriminator(), CycleGAN_discriminator())
 
-    def M(self, L_D, L_G, gamma):
-        return L_D + tf.abs(gamma*L_D - L_G)
-    
-    def update_kt(self, kt, eta, L_D, L_G, gamma):
-        return tf.assign(kt, tf.clip_by_value(
-            kt + eta*(gamma*L_D - L_G), 0, 1))
-    
-    def train(self, input_A, input_B, output,
-              lambda_c=1, k_0=0, eta=0.01, gamma=0.5,
-              norm=1, batch_size=1, epoch_size=1000,
-              lr=1e-4, decay=2e6):
-        ''''''
-        with tf.variable_scope('Input'):
-            
-            coord = tf.train.Coordinator()
-            step = tf.Variable(0, dtype=tf.int32)
-            kt_A, kt_B = [tf.Variable(k_0, dtype=tf.float32) for _ in (0, 1)]
-            A, B = self.stream_input([input_A, input_B],
-                                     self.img_size, batch_size) 
-        
-        with tf.variable_scope('Optimizer'):
+  def cycle_loss(self, x, y, G_of_x, F_of_y):
+    return (tf.reduce_mean(tf.abs(x - self.F(G_of_x)))
+          + tf.reduce_mean(tf.abs(y - self.G(F_of_y))))
 
-            # B onto A and A onto B
-            G_A_B = self.G_B(B)
-            G_B_A = self.G_A(A)
+  def identity_loss(self, x, y, G_of_x, F_of_y):
+    return (tf.reduce_mean(tf.abs(x - G_of_x))
+          + tf.reduce_mean(tf.abs(y - F_of_y)))
 
-            # Real discriminator outputs
-            D_A_R = self.D_A(A)
-            D_B_R = self.D_B(B)
+  def lsgan_loss(self, x, y, G_of_x, F_of_y):
+    D_X_of_x, D_Y_of_y = (
+      tf.sigmoid(self.D_X(x)),
+      tf.sigmoid(self.D_Y(y)))
+    D_X_of_F_of_y, D_Y_of_G_of_x = (
+      tf.sigmoid(self.D_X(F_of_y)),
+      tf.sigmoid(self.D_Y(G_of_x)))
+    L_G = tf.reduce_mean(
+        (D_X_of_F_of_y - 1) ** 2
+      + (D_Y_of_G_of_x - 1) ** 2)
+    L_D = tf.reduce_mean(
+        (D_X_of_x - 1) ** 2
+      + (D_Y_of_y - 1) ** 2
+      + D_X_of_F_of_y ** 2
+      + D_Y_of_G_of_x ** 2)
+    return L_G, L_D
 
-            # Generated discriminator outputs
-            D_A_G = self.D_A(G_A_B)
-            D_B_G = self.D_B(G_B_A)
-            
-            # Cycle outputs
-            G_A_B_A = self.G_B(G_B_A)
-            G_B_A_B = self.G_A(G_A_B)
+  def train(self, X_dir, Y_dir, output_dir, crop_size=256, batch_size=4, lambda_c=10, lambda_i=0):
+    with tf.name_scope('data'):
+      coord = tf.train.Coordinator()
+      x, y = get_image_data([X_dir, Y_dir], crop_size, batch_size)
+    with tf.name_scope('losses'):
+      G_of_x, F_of_y = self.G(x), self.F(y)
+      L_cyc = self.cycle_loss(x, y, G_of_x, F_of_y)
+      L_idy = self.identity_loss(x, y, G_of_x, F_of_y)
+      L_adv_G, L_D = self.lsgan_loss(x, y, G_of_x, F_of_y)
+      L_G = lambda_c * L_cyc + lambda_i * L_idy + L_adv_G
+    with tf.name_scope('optimizers'):
+      G_opt = tf.train.AdamOptimizer(1e-4).minimize(
+        L_G, var_list=self.F.trainable_weights+self.G.trainable_weights)
+      D_opt = tf.train.AdamOptimizer(1e-4).minimize(
+        L_D, var_list=self.D_X.trainable_weights+self.D_Y.trainable_weights)
+    for image in ['x', 'y', 'G_of_x', 'F_of_y']:
+      tf.summary.image(image, postprocess_img(eval(image)), 5)
+    for scalar in ['L_adv_G', 'L_cyc', 'L_D', 'L_idy']:
+      tf.summary.scalar(scalar, eval(scalar))
+    if not os.path.exists(output_dir):
+      os.makedirs(output_dir)
+    writer = tf.summary.FileWriter(output_dir, graph=tf.get_default_graph())
+    summary_op = tf.summary.merge_all()
+    with K.get_session() as sess:
+      tf.train.start_queue_runners(sess=sess, coord=coord)
+      sess.run(tf.global_variables_initializer())
+      for i in tqdm.trange(int(1e6), disable=False):
+        if i % 10:
+          sess.run([G_opt, D_opt])
+        else:
+          s = sess.run([G_opt, D_opt, summary_op])[-1]
+          writer.add_summary(s, i)
 
-            # Real discriminator losses
-            L_D_A = self.L(A, D_A_R, norm=norm)
-            L_D_B = self.L(B, D_B_R, norm=norm)
-
-            # Cycle losses
-            L_C_A = self.L(A, G_A_B_A, norm=norm)
-            L_C_B = self.L(B, G_B_A_B, norm=norm)
-
-            # Generator losses
-            L_G_A = self.L(G_A_B, D_A_G, norm=norm)
-            L_G_B = self.L(G_B_A, D_B_G, norm=norm)
-
-            # Total losses
-            L_D_tot = L_D_A + L_D_B - kt_A*L_G_A - kt_B*L_G_B
-            L_G_tot = L_G_A + L_G_B + lambda_c*(L_C_A + L_C_B)
-            M = self.M(L_D_tot, L_G_tot, gamma)
-
-            # Weights
-            W_D = self.D_A.trainable_weights + self.D_B.trainable_weights
-            W_G = self.G_A.trainable_weights + self.G_B.trainable_weights
-
-            # Optimizers
-            lr = self.decay(lr, step, decay)
-            D_opt = tf.train.AdamOptimizer(lr).minimize(L_D_tot, var_list=W_D)
-            G_opt = tf.train.AdamOptimizer(lr).minimize(L_G_tot, var_list=W_G,
-                                                        global_step=step)
-            # Feedback updates
-            kt_A_update = self.update_kt(kt_A, eta, L_D_A, L_G_A, gamma)
-            kt_B_update = self.update_kt(kt_B, eta, L_D_B, L_G_B, gamma)
-
-            # Group them with D optimizer
-            D_opt = tf.group(D_opt, kt_A_update, kt_B_update)
-            
-        with tf.variable_scope('Summary'):
-            imgs = dict([(i, self.postproc_img(eval(i))) for i in (
-                'A', 'B',
-                'G_A_B', 'G_B_A',
-                'D_A_R', 'D_B_R',
-                'D_A_G', 'D_B_G',
-                'G_A_B_A', 'G_B_A_B')])
-            scalars = dict([(i, eval(i)) for i in (
-                'M', 'lr',
-                'L_D_A', 'L_D_B',
-                'L_G_A', 'L_G_B',
-                'L_C_A', 'L_C_B',
-                'L_D_tot', 'L_G_tot',
-                'kt_A', 'kt_B')])
-        summary, writer = self.make_summary(output,
-            img_dict=imgs, scalar_dict=scalars, n_images=1)
-            
-        try:
-            with tf.Session() as sess:
-                sess.run(tf.global_variables_initializer())
-                tf.train.start_queue_runners(sess=sess, coord=coord)
-                self.save_h5(output, 0)
-                self.graph.finalize()
-                epoch = 1
-                while not coord.should_stop():
-                    print('Epoch '+str(epoch)); epoch +=1 
-                    for _ in tqdm.trange(epoch_size):
-                        n = sess.run([G_opt, step])[1]
-                        if n % 10:
-                            sess.run([D_opt])
-                        else:
-                            s = sess.run([D_opt, summary])[1]
-                            writer.add_summary(s, n)
-                            writer.flush()
-                        if not n % 10000:
-                            self.save_h5(output, n)
-        except:
-            coord.request_stop()
-            time.sleep(1)
-            raise
-                
 if __name__ == '__main__':
-    m = CycleGanModel(32, hidden_dim=32)
-    m.train('/Users/jkyl/data/mnist_png/training', 
-            '/Users/jkyl/data/img_align_celeba',
-            'output/celeba_mnist_UNET_gamma1_cycle0_bs4_l2',
-            lambda_c=0, gamma=1, eta=0.01, k_0=0, norm=2, batch_size=4)
+  p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  p.add_argument('X_dir', type=str, help='path containing images from domain `X`')
+  p.add_argument('Y_dir', type=str, help='path containing images from domain `Y`')
+  p.add_argument('output_dir', type=str, help='path in which to save checkpoints and summaries')
+  p.add_argument('-lc', '--lambda_c', type=float, default=10., help='weight of cycle loss')
+  p.add_argument('-li', '--lambda_i', type=float, default=0., help='weight of identity loss')
+  kwargs = p.parse_args().__dict__
+  model = CycleGAN()
+  model.train(**kwargs)
