@@ -68,13 +68,13 @@ class CycleGAN(object):
       tf.train.start_queue_runners(sess=sess, coord=coord)
       sess.run(tf.global_variables_initializer())
       for i in tqdm.trange(int(1e6), disable=False):
-        if i % 10:
-          sess.run([G_opt, D_opt])
-        else:
-          s = sess.run([G_opt, D_opt, summary_op])[-1]
-          writer.add_summary(s, i)
         if not i % 10000:
           self.save(output_dir, i)
+        if not i % 10:
+          s = sess.run([G_opt, D_opt, summary_op])[-1]
+          writer.add_summary(s, i)
+        else:
+          sess.run([G_opt, D_opt])
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
