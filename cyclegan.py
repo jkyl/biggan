@@ -36,7 +36,7 @@ class CycleGAN(object):
       + D_Y_of_G_of_x ** 2)
     return L_G, L_D
 
-  def save(self, output_dir, i=0):
+  def save(self, output_dir, i):
     suffix = os.path.join(output_dir, '{}_'+str(i).zfill(8)+'.h5')
     self.G.save(suffix.format('G'))
     self.F.save(suffix.format('F'))
@@ -67,8 +67,6 @@ class CycleGAN(object):
     with K.get_session() as sess:
       tf.train.start_queue_runners(sess=sess, coord=coord)
       sess.run(tf.global_variables_initializer())
-      self.save(output_dir)
-      self.graph.finalize()
       for i in tqdm.trange(int(1e6), disable=False):
         if i % 10:
           sess.run([G_opt, D_opt])
