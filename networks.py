@@ -7,14 +7,15 @@ def conv2d(x, n, k, s=1, norm=True, act='relu', res=False):
   if s >= 1:
     x = Conv2D(n, k, strides=s, padding='same', use_bias=not norm)(x)
   else:
-    x = Lambda(lambda x: K.tf.image.resize_nearest_neighbor(x, int(1/s)*K.tf.shape(x)[1:3], align_corners=True))(x)
-    x = Conv2D(n, k, strides=1, padding='same', use_bias=not norm)(x)
+    x = Conv2D(int(n/s**2), k, strides=1, padding='same', use_bias=not norm)(x)
   if norm:
     x = InstanceNormalization(scale=act and not act.endswith('relu'))(x)
   if act=='lrelu':
     x = LeakyReLU(0.2)(x)
   elif act:
     x = Activation(act)(x)
+  if s < 1:
+    x = Lambda(lambda x: K.tf.depth_to_space(x, int(1/s)))(x)
   if type(res) is K.tf.Tensor:
     x = Add()([res, x])
   return x

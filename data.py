@@ -18,36 +18,40 @@ def queue_on_gpu(data_function, memory_limit_gb, n_threads):
       shapes = [t.shape for t in tensors]
       q = tf.contrib.staging.StagingArea(
         dtypes, shapes=shapes, memory_limit=1e9*memory_limit_gb)
-      push, pop, clear = q.put(tensors), q.get(), q.clear()
+      push, pop, clear, size = q.put(tensors), q.get(), q.clear(), q.size()
+    tf.summary.scalar('gpu_queue_size', size)
     tf.train.add_queue_runner(tf.train.QueueRunner(
       queue=q, enqueue_ops=[push]*n_threads, close_op=clear, cancel_op=clear))
     return pop
   return stage
 
-@queue_on_gpu(memory_limit_gb=1, n_threads=1)
-def get_image_data(dirs, crop_size, batch_size, n_threads=3):
-  samples, sizes = [], []
+@queue_on_gpu(memory_limit_gb=1, n_threads=4)
+def get_image_data(dirs, crop_size, batch_size, n_threads=8):
+  def read_and_decode(filename):
+    return tf.image.decode_jpeg(tf.read_file(filename), channels=3)
+  def keep(img):
+    return tf.reduce_min(tf.shape(img)[:2]) >= crop_size
+  def random_crop(img):
+    return tf.random_crop(img, [crop_size, crop_size, 3])
+  samples = []
   for path in dirs:
     files = []
     for ext in ['jpg', 'jpeg', 'png', 'bmp']:
       for ext in [ext.lower(), ext.upper()]:
         for depth in '*.', '*/*.':
           files += glob.glob(os.path.join(path, depth+ext))
-    filenames = tf.train.string_input_producer(files, shuffle=True)
-    img_bytes = tf.WholeFileReader().read(filenames)[1]
-    img = tf.image.decode_jpeg(img_bytes, channels=3)
-    sizes.append(tf.shape(img)[:2])
-    img = preprocess_img(img)
-    img = tf.image.resize_image_with_crop_or_pad(img, *[
-      tf.maximum(crop_size, s) for s in tf.unstack(tf.shape(img))[:2]])
-    img = tf.random_crop(img, [crop_size, crop_size, 3])
-    samples.append(img)
-  keep = tf.cast(tf.logical_and(*[tf.greater_equal(tf.reduce_min(
-    s), crop_size) for s in sizes]), tf.float32)
-  return tf.contrib.training.rejection_sample(
-    samples, lambda x: keep, batch_size,
-    prebatch_capacity=n_threads*batch_size,
-    queue_threads=n_threads)
+    ds = tf.data.Dataset.from_tensor_slices(files)
+    ds = ds.shuffle(len(files), reshuffle_each_iteration=True)
+    ds = ds.repeat()
+    ds = ds.map(read_and_decode, n_threads)
+    ds = ds.filter(keep)
+    ds = ds.map(random_crop, n_threads)
+    ds = ds.batch(batch_size)
+    ds = ds.map(preprocess_img)
+    ds = ds.prefetch(n_threads)
+    it = ds.make_one_shot_iterator()
+    samples.append(it.get_next())
+  return samples
 
 def preprocess_img(img):
   return tf.cast(img, tf.float32) / 127.5 - 1
