@@ -28,7 +28,7 @@ def queue_on_gpu(data_function, memory_limit_gb, n_threads):
 @queue_on_gpu(memory_limit_gb=1, n_threads=4)
 def get_image_data(dirs, crop_size, batch_size, n_threads=8):
   def read_and_decode(filename):
-    return tf.image.decode_jpeg(tf.read_file(filename), channels=3)
+    return tf.image.decode_jpeg(tf.read_file(filename), channels=3, try_recover_truncated=True)
   def keep(img):
     return tf.reduce_min(tf.shape(img)[:2]) >= crop_size
   def random_crop(img):

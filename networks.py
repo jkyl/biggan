@@ -1,24 +1,4 @@
-from keras.layers import Input, Conv2D, Activation, LeakyReLU, Add, Lambda
-from keras_contrib.layers import InstanceNormalization
-from keras.models import Model
-import keras.backend as K
-
-def conv2d(x, n, k, s=1, norm=True, act='relu', res=False):
-  if s >= 1:
-    x = Conv2D(n, k, strides=s, padding='same', use_bias=not norm)(x)
-  else:
-    x = Conv2D(int(n/s**2), k, strides=1, padding='same', use_bias=not norm)(x)
-  if norm:
-    x = InstanceNormalization(scale=act and not act.endswith('relu'))(x)
-  if act=='lrelu':
-    x = LeakyReLU(0.2)(x)
-  elif act:
-    x = Activation(act)(x)
-  if s < 1:
-    x = Lambda(lambda x: K.tf.depth_to_space(x, int(1/s)))(x)
-  if type(res) is K.tf.Tensor:
-    x = Add()([res, x])
-  return x
+from layers import Input, conv2d, Model
 
 def CycleGAN_generator(n_blocks=6):
   inp = x = Input((None, None, 3))
