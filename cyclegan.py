@@ -82,7 +82,7 @@ if __name__ == '__main__':
   p.add_argument('Y_dir', type=str, help='path containing images from domain `Y`')
   p.add_argument('output_dir', type=str, help='path in which to save checkpoints and summaries')
   p.add_argument('-lc', '--lambda_c', type=float, default=10., help='weight of cycle loss')
-  p.add_argument('-li', '--lambda_i', type=float, default=1., help='weight of identity loss')
+  p.add_argument('-li', '--lambda_i', type=float, default=0., help='weight of identity loss')
   kwargs = p.parse_args().__dict__
   model = CycleGAN()
   model.train(**kwargs)

@@ -25,7 +25,7 @@ def queue_on_gpu(data_function, memory_limit_gb, n_threads):
     return pop
   return stage
 
-@queue_on_gpu(memory_limit_gb=1, n_threads=4)
+@queue_on_gpu(memory_limit_gb=0.1, n_threads=1)
 def get_image_data(dirs, crop_size, batch_size, n_threads=8):
   def read_and_decode(filename):
     return tf.image.decode_jpeg(tf.read_file(filename), channels=3, try_recover_truncated=True)
