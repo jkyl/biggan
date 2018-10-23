@@ -19,21 +19,15 @@ class CycleGAN(object):
     return (tf.reduce_mean(tf.abs(x - G_of_x))
           + tf.reduce_mean(tf.abs(y - F_of_y)))
 
-  def lsgan_loss(self, x, y, G_of_x, F_of_y):
-    D_X_of_x, D_Y_of_y = (
-      tf.sigmoid(self.D_X(x)),
-      tf.sigmoid(self.D_Y(y)))
-    D_X_of_F_of_y, D_Y_of_G_of_x = (
-      tf.sigmoid(self.D_X(F_of_y)),
-      tf.sigmoid(self.D_Y(G_of_x)))
-    L_G = tf.reduce_mean(
-        (D_X_of_F_of_y - 1) ** 2
-      + (D_Y_of_G_of_x - 1) ** 2)
-    L_D = tf.reduce_mean(
-        (D_X_of_x - 1) ** 2
-      + (D_Y_of_y - 1) ** 2
-      + D_X_of_F_of_y ** 2
-      + D_Y_of_G_of_x ** 2)
+  def gan_loss(self, x, y, G_of_x, F_of_y):
+    def log_loss(logits, label):
+      return tf.reduce_mean(tf.nn.sigmoid_cross_entropy_with_logits(
+        logits=logits, labels=label*tf.ones_like(logits)))
+    D_X_of_x, D_Y_of_y, D_X_of_F_of_y, D_Y_of_G_of_x = \
+      self.D_X(x), self.D_Y(y), self.D_X(F_of_y), self.D_Y(G_of_x)
+    L_G = log_loss(D_X_of_F_of_y, 1) + log_loss(D_Y_of_G_of_x, 1)
+    L_D = log_loss(D_X_of_F_of_y, 0) + log_loss(D_Y_of_G_of_x, 0) \
+        + log_loss(D_X_of_x, 1) + log_loss(D_Y_of_y, 1)
     return L_G, L_D
 
   def save(self, output_dir, i):
@@ -49,13 +43,14 @@ class CycleGAN(object):
       G_of_x, F_of_y = self.G(x), self.F(y)
       L_cyc = self.cycle_loss(x, y, G_of_x, F_of_y)
       L_idy = self.identity_loss(x, y, G_of_x, F_of_y)
-      L_adv_G, L_D = self.lsgan_loss(x, y, G_of_x, F_of_y)
+      L_adv_G, L_D = self.gan_loss(x, y, G_of_x, F_of_y)
       L_G = lambda_c * L_cyc + lambda_i * L_idy + L_adv_G
     with tf.name_scope('optimizers'):
-      G_opt = tf.train.AdamOptimizer(1e-4).minimize(
+      G_opt = tf.train.AdamOptimizer(2e-4, 0.5, 0.999).minimize(
         L_G, var_list=self.F.trainable_weights+self.G.trainable_weights)
-      D_opt = tf.train.AdamOptimizer(1e-4).minimize(
+      D_opt = tf.train.AdamOptimizer(2e-4, 0.5, 0.999).minimize(
         L_D, var_list=self.D_X.trainable_weights+self.D_Y.trainable_weights)
+      train = tf.group(G_opt, D_opt)
     for image in ['x', 'y', 'G_of_x', 'F_of_y']:
       tf.summary.image(image, postprocess_img(eval(image)), 5)
     for scalar in ['L_adv_G', 'L_cyc', 'L_D', 'L_idy']:
@@ -63,7 +58,7 @@ class CycleGAN(object):
     if not os.path.exists(output_dir):
       os.makedirs(output_dir)
     writer = tf.summary.FileWriter(output_dir, graph=self.graph)
-    summary_op = tf.summary.merge_all()
+    summarize = tf.summary.merge_all()
     with K.get_session() as sess:
       tf.train.start_queue_runners(sess=sess, coord=coord)
       sess.run(tf.global_variables_initializer())
@@ -71,10 +66,10 @@ class CycleGAN(object):
         if not i % 10000:
           self.save(output_dir, i)
         if not i % 10:
-          s = sess.run([G_opt, D_opt, summary_op])[-1]
+          s = sess.run([train, summarize])[-1]
           writer.add_summary(s, i)
         else:
-          sess.run([G_opt, D_opt])
+          sess.run(train)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(formatter_class=argparse.ArgumentDefaultsHelpFormatter)
@@ -84,5 +79,4 @@ if __name__ == '__main__':
   p.add_argument('-lc', '--lambda_c', type=float, default=10., help='weight of cycle loss')
   p.add_argument('-li', '--lambda_i', type=float, default=0., help='weight of identity loss')
   kwargs = p.parse_args().__dict__
-  model = CycleGAN()
-  model.train(**kwargs)
+  model = CycleGAN().train(**kwargs)

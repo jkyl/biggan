@@ -19,6 +19,6 @@ def CycleGAN_discriminator(n_layers=4):
   for i in range(n_layers):
     n = min(512, 2**(i+6))
     s = 2 if i+1<n_layers else 1
-    x = conv2d(x, n, 4, s=s, norm=i, act='lrelu')
-  out = conv2d(x, 1, 4, norm=None, act=None)
+    x = conv2d(x, n, 4, s=s, norm=i, act='lrelu', sn=True)
+  out = conv2d(x, 1, 4, norm=None, act=None, sn=True)
   return Model(inputs=inp, outputs=out)

@@ -4,7 +4,7 @@ from keras import initializers
 from keras.layers import Conv2D, LeakyReLU, Activation, Add, Lambda
 from keras_contrib.layers import InstanceNormalization
 
-def conv2d(x, n, k, s=1, norm=True, act='relu', res=False, sn=True):
+def conv2d(x, n, k, s=1, norm=True, act='relu', res=False, sn=False):
   if sn:
     ConvLayer = ConvSN2D
   else:
@@ -71,8 +71,11 @@ class ConvSN2D(Conv2D):
     sigma = K.dot(_v, W_reshaped)
     sigma = K.dot(sigma, K.transpose(_u))
     W_bar = W_reshaped / sigma
-    with K.tf.control_dependencies([self.u.assign(_u)]):
+    if training in {0, False}:
       W_bar = K.reshape(W_bar, W_shape)
+    else:
+      with K.tf.control_dependencies([self.u.assign(_u)]):
+        W_bar = K.reshape(W_bar, W_shape)
     outputs = K.conv2d(
       inputs,
       W_bar,
