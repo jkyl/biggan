@@ -7,7 +7,7 @@ from data import *
 class CycleGAN(object):
   def __init__(self):
     self.F, self.G, self.D_X, self.D_Y = (
-      CycleGAN_generator(), CycleGAN_generator(),
+      CycleGAN_generator(16), CycleGAN_generator(16),
       CycleGAN_discriminator(), CycleGAN_discriminator())
     self.graph = tf.get_default_graph()
 
@@ -35,7 +35,7 @@ class CycleGAN(object):
     self.G.save(suffix.format('G'))
     self.F.save(suffix.format('F'))
 
-  def train(self, X_dir, Y_dir, output_dir, crop_size=256, batch_size=1, lambda_c=10, lambda_i=1):
+  def train(self, X_dir, Y_dir, output_dir, crop_size=64, batch_size=32, lambda_c=10, lambda_i=1):
     with tf.name_scope('data'):
       coord = tf.train.Coordinator()
       x, y = get_image_data([X_dir, Y_dir], crop_size, batch_size)
@@ -79,4 +79,6 @@ if __name__ == '__main__':
   p.add_argument('-lc', '--lambda_c', type=float, default=10., help='weight of cycle loss')
   p.add_argument('-li', '--lambda_i', type=float, default=0., help='weight of identity loss')
   kwargs = p.parse_args().__dict__
-  model = CycleGAN().train(**kwargs)
+  model = CycleGAN()
+  model.G.summary()
+  model.train(**kwargs)

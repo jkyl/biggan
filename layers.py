@@ -1,93 +1,50 @@
-from keras import backend as K
-from keras.engine import *
-from keras import initializers
-from keras.layers import Conv2D, LeakyReLU, Activation, Add, Lambda
-from keras_contrib.layers import InstanceNormalization
+from keras.layers import *
+from spectral import *
 
-def conv2d(x, n, k, s=1, norm=True, act='relu', res=False, sn=False):
-  if sn:
-    ConvLayer = ConvSN2D
-  else:
-    ConvLayer = Conv2D
-  if s >= 1:
-    x = ConvLayer(n, k, strides=s, padding='same', use_bias=not norm)(x)
-  else:
-    x = ConvLayer(int(n/s**2), k, strides=1, padding='same', use_bias=not norm)(x)
+from keras import backend as K
+from keras_contrib.layers import InstanceNormalization
+from non_local import non_local_block
+
+def UnPooling2D(w, name=None):
+  def resize(x):
+    x = K.tf.image.resize_nearest_neighbor(x, [w]*2, align_corners=True)
+    s = x.shape.as_list()
+    x.set_shape([s[0], w, w, s[-1]])
+    return x
+  return Lambda(resize, name=name)
+
+def conv2d(x, n, k, s=1, norm=False, act=False, res=False, sn=False):
+  x = (ConvSN2D if sn else Conv2D)(n, k, strides=max(s, 1), padding='same', use_bias=not norm)(x)
   if norm:
     x = InstanceNormalization(scale=act and not act.endswith('relu'))(x)
   if act=='lrelu':
     x = LeakyReLU(0.2)(x)
   elif act:
     x = Activation(act)(x)
-  if s < 1:
-    x = Lambda(lambda x: K.tf.depth_to_space(x, int(1/s)))(x)
   if type(res) is K.tf.Tensor:
     x = Add()([res, x])
+  if s < 1:
+    x = Lambda(lambda x: K.tf.image.resize_nearest_neighbor(
+      x, K.tf.shape(x)[1:3]*int(1/s), align_corners=True))(x)
   return x
 
-class ConvSN2D(Conv2D):
-  def build(self, input_shape):
-    if self.data_format == 'channels_first':
-      channel_axis = 1
-    else:
-      channel_axis = -1
-    if input_shape[channel_axis] is None:
-      raise ValueError('The channel dimension of the inputs '
-                       'should be defined. Found `None`.')
-    input_dim = input_shape[channel_axis]
-    kernel_shape = self.kernel_size + (input_dim, self.filters)
-    self.kernel = self.add_weight(shape=kernel_shape,
-                                  initializer=self.kernel_initializer,
-                                  name='kernel',
-                                  regularizer=self.kernel_regularizer,
-                                  constraint=self.kernel_constraint)
-    if self.use_bias:
-      self.bias = self.add_weight(shape=(self.filters,),
-                                  initializer=self.bias_initializer,
-                                  name='bias',
-                                  regularizer=self.bias_regularizer,
-                                  constraint=self.bias_constraint)
-    else:
-      self.bias = None
-    self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
-                             initializer=initializers.RandomNormal(0, 1),
-                             name='sn',
-                             trainable=False)
-    self.input_spec = InputSpec(ndim=self.rank + 2,
-                                axes={channel_axis: input_dim})
-    self.built = True
+def split_zs(z, n, name=None):
+  d = z.shape.as_list()[-1]
+  def unstack_with_remainder(x):
+    output = []
+    for i in range(n):
+      start = i * (d // n)
+      stop = start + d // n if i + 1 < n else d + 1
+      output.append(x[:, start:stop])
+    return output
+  def output_shape(_):
+    si = (None, d // n)
+    sf = (None, d // n + d % n)
+    rv = [si] * (n - 1) + [sf]
+    return rv
+  return Lambda(unstack_with_remainder, output_shape=output_shape, name=name)(z)
 
-  def call(self, inputs):
-    def _l2normalize(v, eps=1e-12):
-      return v / (K.sum(v ** 2) ** 0.5 + eps)
-    def power_iteration(W, u):
-      _u = u
-      _v = _l2normalize(K.dot(_u, K.transpose(W)))
-      _u = _l2normalize(K.dot(_v, W))
-      return _u, _v
-    W_shape = self.kernel.shape.as_list()
-    W_reshaped = K.reshape(self.kernel, [-1, W_shape[-1]])
-    _u, _v = power_iteration(W_reshaped, self.u)
-    sigma = K.dot(_v, W_reshaped)
-    sigma = K.dot(sigma, K.transpose(_u))
-    W_bar = W_reshaped / sigma
-    if training in {0, False}:
-      W_bar = K.reshape(W_bar, W_shape)
-    else:
-      with K.tf.control_dependencies([self.u.assign(_u)]):
-        W_bar = K.reshape(W_bar, W_shape)
-    outputs = K.conv2d(
-      inputs,
-      W_bar,
-      strides=self.strides,
-      padding=self.padding,
-      data_format=self.data_format,
-      dilation_rate=self.dilation_rate)
-    if self.use_bias:
-      outputs = K.bias_add(
-        outputs,
-        self.bias,
-        data_format=self.data_format)
-    if self.activation is not None:
-      return self.activation(outputs)
-    return outputs
+def reshape_zi(zi, w):
+  zi = RepeatVector(w**2)(zi)
+  zi = Reshape((w, w, zi.shape.as_list()[-1]))(zi)
+  return zi

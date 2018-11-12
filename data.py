@@ -1,5 +1,18 @@
-import os, glob
+import os, glob, signal, tqdm, cv2, PIL
 import tensorflow as tf
+import numpy as np
+
+class timeout:
+  def __init__(self, seconds=1, error_message='Timeout'):
+    self.seconds = seconds
+    self.error_message = error_message
+  def handle_timeout(self, signum, frame):
+    raise TimeoutError(self.error_message)
+  def __enter__(self):
+    signal.signal(signal.SIGALRM, self.handle_timeout)
+    signal.alarm(self.seconds)
+  def __exit__(self, type, value, traceback):
+    signal.alarm(0)
 
 def parameterized(decorator):
   def wrap(*args, **kwargs):
@@ -9,7 +22,15 @@ def parameterized(decorator):
   return wrap
 
 @parameterized
-def queue_on_gpu(data_function, memory_limit_gb, n_threads):
+def tf_func(f, *dtypes):
+  def wrapped(*args):
+    return tf.py_func(f, args, dtypes)
+  return wrapped
+
+@parameterized
+def queue_on_gpu(data_function, _sentinel=None, memory_limit_gb=None, n_threads=None):
+  if _sentinel or not (memory_limit_gb and n_threads):
+    raise ValueError('must specify `memory_limit_gb` and `n_threads` as kwargs to `queue_on_gpu`')
   def stage(*args, **kwargs):
     with tf.device('/cpu:0'):
       tensors = data_function(*args, **kwargs)
@@ -26,26 +47,36 @@ def queue_on_gpu(data_function, memory_limit_gb, n_threads):
   return stage
 
 @queue_on_gpu(memory_limit_gb=0.1, n_threads=1)
-def get_image_data(dirs, crop_size, batch_size, n_threads=8):
+def get_image_data(dirs, image_size, batch_size, mode='random_crop', n_threads=8):
+  @tf_func(tf.uint8)
   def read_and_decode(filename):
-    return tf.image.decode_jpeg(tf.read_file(filename), channels=3, try_recover_truncated=True)
+    return cv2.imread(filename.decode('utf-8'))[...,::-1]
   def keep(img):
-    return tf.reduce_min(tf.shape(img)[:2]) >= crop_size
+    return tf.reduce_min(tf.shape(img)[:2]) >= image_size
   def random_crop(img):
-    return tf.random_crop(img, [crop_size, crop_size, 3])
+    return tf.random_crop(img, [image_size, image_size, 3])
+  def resize(img):
+    img = tf.image.resize_image_with_crop_or_pad(img, *([
+      tf.reduce_min(tf.shape(img)[:2])]*2))
+    return tf.image.resize_images(img, [image_size]*2,
+      method=tf.image.ResizeMethod.AREA, align_corners=True)
   samples = []
   for path in dirs:
     files = []
-    for ext in ['jpg', 'jpeg', 'png', 'bmp']:
+    for ext in ['jpg', 'jpeg', 'png']:
       for ext in [ext.lower(), ext.upper()]:
         for depth in '*.', '*/*.':
           files += glob.glob(os.path.join(path, depth+ext))
+    nf = len(files)
+    print('found {} files'.format(nf))
+    if not nf:
+      raise ValueError('must provide directory with jpegs or pngs')
     ds = tf.data.Dataset.from_tensor_slices(files)
-    ds = ds.shuffle(len(files), reshuffle_each_iteration=True)
+    ds = ds.shuffle(nf, reshuffle_each_iteration=True)
     ds = ds.repeat()
     ds = ds.map(read_and_decode, n_threads)
     ds = ds.filter(keep)
-    ds = ds.map(random_crop, n_threads)
+    ds = ds.map(resize if mode == 'resize' else random_crop, n_threads)
     ds = ds.batch(batch_size)
     ds = ds.map(preprocess_img)
     ds = ds.prefetch(n_threads)
@@ -58,3 +89,11 @@ def preprocess_img(img):
 
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
+
+if __name__ == '__main__':
+  x = get_image_data(['/Volumes/1TBSSD/wikiart'], 256, 1)[0]
+  coord = tf.train.Coordinator()
+  with tf.Session() as sess:
+    for i in tqdm.trange(100000):
+      tf.train.start_queue_runners(sess=sess, coord=coord)
+      sess.run(x)
