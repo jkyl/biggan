@@ -48,3 +48,12 @@ def reshape_zi(zi, w):
   zi = RepeatVector(w**2)(zi)
   zi = Reshape((w, w, zi.shape.as_list()[-1]))(zi)
   return zi
+
+def SubPixel(factor, name=None):
+  def func(x):
+    import tensorflow as tf
+    return tf.depth_to_space(x, factor)
+  def output_shape(input_shape):
+    n, h, w, c = input_shape
+    return (n, h*factor, w*factor, c//factor**2)
+  return Lambda(func, output_shape=output_shape, name=name)

@@ -46,11 +46,11 @@ def queue_on_gpu(data_function, _sentinel=None, memory_limit_gb=None, n_threads=
     return pop
   return stage
 
-@queue_on_gpu(memory_limit_gb=0.1, n_threads=1)
+@queue_on_gpu(memory_limit_gb=0.2, n_threads=1)
 def get_image_data(dirs, image_size, batch_size, mode='random_crop', n_threads=8):
   @tf_func(tf.uint8)
   def read_and_decode(filename):
-    return cv2.imread(filename.decode('utf-8'))[...,::-1]
+    return cv2.imread(filename.decode('utf-8'))
   def keep(img):
     return tf.reduce_min(tf.shape(img)[:2]) >= image_size
   def random_crop(img):
@@ -85,15 +85,7 @@ def get_image_data(dirs, image_size, batch_size, mode='random_crop', n_threads=8
   return samples
 
 def preprocess_img(img):
-  return tf.cast(img, tf.float32) / 127.5 - 1
+  return tf.cast(img[...,::-1], tf.float32) / 127.5 - 1
 
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
-
-if __name__ == '__main__':
-  x = get_image_data(['/Volumes/1TBSSD/wikiart'], 256, 1)[0]
-  coord = tf.train.Coordinator()
-  with tf.Session() as sess:
-    for i in tqdm.trange(100000):
-      tf.train.start_queue_runners(sess=sess, coord=coord)
-      sess.run(x)

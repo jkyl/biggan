@@ -6,7 +6,7 @@ import keras.backend as K
 import networks as nets
 import data
 
-class CycleGAN(object):
+class GAN(object):
   def __init__(self, image_size, channels, z_dim, **kwargs):
     self.G, self.D = (
       nets.resnet_generator(image_size, channels, z_dim),
@@ -31,7 +31,7 @@ class CycleGAN(object):
       WTW = tf.matmul(tf.transpose(W), W)
       offdiagonal = 1. - tf.eye(d)
       return tf.nn.l2_loss(WTW * offdiagonal)
-    return tf.reduce_mean([R(W)
+    return tf.reduce_sum([R(W)
       for W in self.G.trainable_weights if 'kernel' in W.name])
 
   def save(self, output_dir, i):
@@ -48,7 +48,7 @@ class CycleGAN(object):
       R = self.orthogonal_regularization()
     with tf.name_scope('optimizers'):
       G_opt = tf.train.AdamOptimizer(2e-4, 0.5, 0.999)\
-        .minimize(L_G+1e-4*R, var_list=self.G.trainable_weights)
+        .minimize(L_G, var_list=self.G.trainable_weights)
       D_opt = tf.train.AdamOptimizer(2e-4, 0.5, 0.999)\
         .minimize(L_D, var_list=self.D.trainable_weights)
     for image in ['x', 'xhat']:
@@ -83,4 +83,4 @@ if __name__ == '__main__':
   p.add_argument('-bs', '--batch_size', type=int, default=16, help='number of examples per gradient update')
   p.add_argument('-nd', '--n_D_updates', type=int, default=1, help='number of D updates per G update')
   kwargs = p.parse_args().__dict__
-  model = CycleGAN(**kwargs).train(**kwargs)
+  model = GAN(**kwargs).train(**kwargs)

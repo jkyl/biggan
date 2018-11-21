@@ -26,24 +26,20 @@ def CycleGAN_discriminator(n_layers=4):
 
 def resnet_generator(output_size, channels, z_dim):
   z = Input((z_dim,))
-  l = int(np.log2(output_size)) - 2
-  zs = split_zs(z, l+1, name='split_zs')
-  x = Dense(4*4*16*channels, use_bias=False, kernel_initializer='orthogonal')(zs[0])
+  x = Dense(4*4*16*channels, use_bias=False, kernel_initializer='orthogonal')(z)
   x = Reshape((4, 4, 16*channels))(x)
+  l = int(np.log2(output_size)) - 2
   for i in range(1, l+1):
     x0 = x
-    w = 2**(i+1)
     n = channels*2**(l-i)
     for j in range(2):
       x = InstanceNormalization(axis=-1, scale=False)(x)
       x = Activation('relu')(x)
       if j == 0:
-        zi = reshape_zi(zs[i], w)
-        x = Concatenate()([x, zi])
-        x = UnPooling2D(2*w, name='unpooling_'+str(2*i+1))(x)
-        x0 = UnPooling2D(2*w, name='unpooling_'+str(2*i+2))(x0)
+        x = SubPixel(2, name='subpixel_'+str(2*i+1))(x)
+        x0 = SubPixel(2, name='subpixel_'+str(2*i+2))(x0)
       x = Conv2D(n, 3, padding='same', use_bias=False, kernel_initializer='orthogonal')(x)
-    x0 = Conv2D(n, 3, padding='same', use_bias=False, kernel_initializer='orthogonal')(x0)
+    x0 = Conv2D(n, 1, padding='same', use_bias=False, kernel_initializer='orthogonal')(x0)
     x = Add()([x, x0])
   x = InstanceNormalization(axis=-1, scale=False)(x)
   x = Activation('relu')(x)
@@ -57,15 +53,29 @@ def resnet_discriminator(input_size, channels):
   for i in range(l):
     x0 = x
     n = channels*2**i
-    for j in range(2):
-      x = Activation('relu')(x)
-      if j == 1:
-        x = AveragePooling2D()(x)
-        x0 = AveragePooling2D()(x0)
+    if i == 0:
       x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-    x0 = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x0)
+      x = Activation('relu')(x)
+      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
+      x = AveragePooling2D()(x)
+      x0 = AveragePooling2D()(x0)
+      x0 = ConvSN2D(n, 1, padding='same', kernel_initializer='orthogonal')(x0)
+    else:
+      x = Activation('relu')(x)
+      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
+      x = Activation('relu')(x)
+      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
+      x0 = ConvSN2D(n, 1, padding='same', kernel_initializer='orthogonal')(x0)
+      x = AveragePooling2D()(x)
+      x0 = AveragePooling2D()(x0)
     x = Add()([x, x0])
-  x = Activation('relu')(x)
+  #x0 = x
+  #x = Activation('relu')(x)
+  #x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
+  #x = Activation('relu')(x)
+  #x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
+  #x = Add()([x, x0])
+  #x = Activation('relu')(x)
   x = GlobalAveragePooling2D()(x)
   x = DenseSN(1, kernel_initializer='orthogonal')(x)
   return Model(inputs=inp, outputs=x)
