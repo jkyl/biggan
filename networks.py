@@ -1,81 +1,36 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from layers import *
-from keras.models import Model
-
-def CycleGAN_generator(n_blocks=6):
-  inp = x = Input((None, None, 3))
-  x = conv2d(x, 32, 7, act='relu', norm=True, sn=True)
-  x = conv2d(x, 64, 3, s=2, act='relu', norm=True, sn=True)
-  x = conv2d(x, 128, 3, s=2, act='relu', norm=True, sn=True)
-  for i in range(n_blocks):
-    xi = x
-    x = conv2d(x, 128, 3, act='relu', norm=True, sn=True)
-    x = conv2d(x, 128, 3, act=False, norm=True, sn=True, res=xi)
-  x = conv2d(x, 64, 3, s=.5, act='relu', norm=True, sn=True)
-  x = conv2d(x, 32, 3, s=.5, act='relu', norm=True, sn=True)
-  out = conv2d(x, 3, 7, act='tanh', norm=False, sn=True)
-  return Model(inputs=inp, outputs=out)
-
-def CycleGAN_discriminator(n_layers=4):
-  inp = x = Input((None, None, 3))
-  for i in range(n_layers):
-    n = min(512, 2**(i+6))
-    s = 2 if i+1<n_layers else 1
-    x = conv2d(x, n, 4, s=s, norm=False, act='lrelu', sn=True)
-  out = conv2d(x, 1, 4, norm=False, act=False, sn=True)
-  return Model(inputs=inp, outputs=out)
+from tensorflow.keras.models import Model
+import numpy as np
 
 def resnet_generator(output_size, channels, z_dim):
   z = Input((z_dim,))
-  x = Dense(4*4*16*channels, use_bias=False, kernel_initializer='orthogonal')(z)
+  x = DenseSN(4*4*16*channels)(z)
   x = Reshape((4, 4, 16*channels))(x)
   l = int(np.log2(output_size)) - 2
-  for i in range(1, l+1):
-    x0 = x
-    n = channels*2**(l-i)
-    for j in range(2):
-      x = InstanceNormalization(axis=-1, scale=False)(x)
-      x = Activation('relu')(x)
-      if j == 0:
-        x = SubPixel(2, name='subpixel_'+str(2*i+1))(x)
-        x0 = SubPixel(2, name='subpixel_'+str(2*i+2))(x0)
-      x = Conv2D(n, 3, padding='same', use_bias=False, kernel_initializer='orthogonal')(x)
-    x0 = Conv2D(n, 1, padding='same', use_bias=False, kernel_initializer='orthogonal')(x0)
-    x = Add()([x, x0])
+  for i in range(1, l + 1):
+    dim = channels * 2 ** (l - i)
+    if i == l:
+      x = self_attention(x, dim)
+    x = residual_upconv(x, dim)
   x = InstanceNormalization(axis=-1, scale=False)(x)
   x = Activation('relu')(x)
-  x = Conv2D(3, 3, padding='same', kernel_initializer='orthogonal')(x)
+  x = ConvSN2D(3, 3, bias=True)(x)
   x = Activation('tanh')(x)
   return Model(inputs=z, outputs=x)
 
 def resnet_discriminator(input_size, channels):
   inp = x = Input((input_size, input_size, 3))
   l = int(np.log2(input_size)) - 2
-  for i in range(l):
-    x0 = x
-    n = channels*2**i
+  for i in range(l + 1):
+    dim = channels * 2 ** (i if i < l else l - 1)
+    x = residual_downconv(x, dim, first=i==0, last=i==l)
     if i == 0:
-      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-      x = Activation('relu')(x)
-      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-      x = AveragePooling2D()(x)
-      x0 = AveragePooling2D()(x0)
-      x0 = ConvSN2D(n, 1, padding='same', kernel_initializer='orthogonal')(x0)
-    else:
-      x = Activation('relu')(x)
-      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-      x = Activation('relu')(x)
-      x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-      x0 = ConvSN2D(n, 1, padding='same', kernel_initializer='orthogonal')(x0)
-      x = AveragePooling2D()(x)
-      x0 = AveragePooling2D()(x0)
-    x = Add()([x, x0])
-  #x0 = x
-  #x = Activation('relu')(x)
-  #x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-  #x = Activation('relu')(x)
-  #x = ConvSN2D(n, 3, padding='same', kernel_initializer='orthogonal')(x)
-  #x = Add()([x, x0])
-  #x = Activation('relu')(x)
+      x = self_attention(x, dim)
+  x = Activation('relu')(x)
   x = GlobalAveragePooling2D()(x)
-  x = DenseSN(1, kernel_initializer='orthogonal')(x)
+  x = DenseSN(1)(x)
   return Model(inputs=inp, outputs=x)
