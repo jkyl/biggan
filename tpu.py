@@ -33,6 +33,25 @@ tf.flags.DEFINE_integer('train_steps', 1000000, 'Total number of training steps.
 tf.flags.DEFINE_integer('num_shards', 8, 'Number of shards (TPU chips).')
 FLAGS = tf.flags.FLAGS
 
+class GAN(object):
+  def __init__(self, image_size, channels, z_dim, **kwargs):
+    self.G, self.D = (
+      nets.resnet_generator(image_size, channels, z_dim),
+      nets.resnet_discriminator(image_size, channels))
+    self.graph = tf.get_default_graph()
+    self.image_size = image_size
+    self.channels = channels
+    self.z_dim = z_dim
+    self.G.summary()
+    self.D.summary()
+
+  def hinge_loss(self, x, xhat):
+    logits_fake, logits_real = self.D(xhat), self.D(x)
+    L_G = -tf.reduce_mean(logits_fake)
+    L_D = tf.reduce_mean(tf.nn.relu(1 - logits_real))\
+        + tf.reduce_mean(tf.nn.relu(1 + logits_fake))
+    return L_G, L_D
+
 def model_fn(features, labels, mode, params):
   model = gan.GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
@@ -65,7 +84,7 @@ def main(argv):
       model_dir=FLAGS.model_dir,
       session_config=tf.ConfigProto(
           allow_soft_placement=True, log_device_placement=True),
-      tpu_config=tf.contrib.tpu.TPUConfig(num_shards=FLAGS.num_shards),
+      tpu_config=tf.contrib.tpu.TPUConfig(iterations_per_loop=100, num_shards=FLAGS.num_shards),
   )
   estimator = tf.contrib.tpu.TPUEstimator(
       model_fn=model_fn,
