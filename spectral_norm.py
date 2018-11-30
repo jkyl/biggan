@@ -11,6 +11,7 @@ from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
 class ConvSN2D(Conv2D):
   def build(self, input_shape):
+    input_shape = input_shape.as_list()
     if self.data_format == 'channels_first':
       channel_axis = 1
     else:
@@ -78,6 +79,7 @@ class ConvSN2D(Conv2D):
 
 class DenseSN(Dense):
   def build(self, input_shape):
+    input_shape = input_shape.as_list()
     assert len(input_shape) >= 2
     input_dim = input_shape[-1]
     self.kernel = self.add_weight(shape=(input_dim, self.units),
