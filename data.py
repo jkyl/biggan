@@ -39,8 +39,9 @@ def get_image_data(dirs, image_size, batch_size, n_threads=8):
     ds = ds.map(preprocess_img)
     ds = ds.prefetch(n_threads)
     it = ds.make_one_shot_iterator()
-    samples.append(it.get_next())
-  print(samples)
+    samp = it.get_next()
+    samp.set_shape((batch_size, image_size, image_size, 3))
+    samples.append(samp)
   if len(samples) == 1:
     return samples[0]
   return samples
