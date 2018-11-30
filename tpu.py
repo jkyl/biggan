@@ -27,6 +27,7 @@ tf.flags.DEFINE_integer('batch_size', 1024,
                         'Mini-batch size for the training. Note that this '
                         'is the global batch size and not the per-shard batch.')
 tf.flags.DEFINE_integer('image_size', 256, 'sidelength of images')
+tf.flags.DEFINE_integer('channels', 32, 'channel multiplier for G and D')
 tf.flags.DEFINE_integer('z_dim', 128, 'dimensionality of latent vector')
 tf.flags.DEFINE_integer('train_steps', 1000000, 'Total number of training steps.')
 tf.flags.DEFINE_integer('num_shards', 8, 'Number of shards (TPU chips).')
