@@ -61,6 +61,8 @@ def get_image_data(dirs, image_size, batch_size, mode='resize', n_threads=8):
   if not type(dirs) in (tuple, list):
     dirs = [dirs]
   for path in dirs:
+    print(path)
+    print(os.path.isdir(path))
     files = []
     for ext in ['jpg', 'jpeg', 'png']:
       for ext in [ext.lower(), ext.upper()]:
