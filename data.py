@@ -4,6 +4,7 @@ from __future__ import division
 
 import tensorflow as tf
 import glob
+import cv2
 import os
 
 def parameterized(decorator):
@@ -43,11 +44,11 @@ def queue_on_gpu(data_function, _sentinel=None,
     return pop
   return stage
 
-#@queue_on_gpu(memory_limit_gb=0.2, n_threads=2)
+@queue_on_gpu(memory_limit_gb=0.2, n_threads=2)
 def get_image_data(dirs, image_size, batch_size, mode='resize', n_threads=8):
-  #@tf_func(tf.uint8)
+  @tf_func(tf.uint8)
   def read_and_decode(filename):
-    return tf.image.decode_image(tf.read_file(filename))#cv2.imread(filename.decode('utf-8'))
+    return cv2.imread(filename.decode('utf-8'))
   def keep(img):
     return tf.reduce_min(tf.shape(img)[:2]) >= image_size
   def random_crop(img):

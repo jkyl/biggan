@@ -2,10 +2,10 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras import initializers, regularizers, constraints
-from tensorflow.python.keras.engine import Layer, InputSpec
-from tensorflow.python.keras.utils.generic_utils import get_custom_objects
+from keras import backend as K
+from keras import initializers, regularizers, constraints
+from keras.engine import Layer, InputSpec
+from keras.utils.generic_utils import get_custom_objects
 
 class InstanceNormalization(Layer):
   '''Instance normalization layer (Lei Ba et al., 2016, Ulyanov et al., 2016).'''
