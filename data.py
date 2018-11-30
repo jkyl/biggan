@@ -5,10 +5,9 @@ from __future__ import division
 import tensorflow as tf
 import os
 
-def get_image_data(dirs, image_size, batch_size, mode='resize', n_threads=8):
+def get_image_data(dirs, image_size, batch_size, n_threads=8):
   def read_and_decode(filename):
     x = tf.image.decode_image(tf.read_file(filename), channels=3)
-    print(x.shape)
     return x
   def keep(img):
     return tf.reduce_min(tf.shape(img)[:2]) >= image_size
@@ -41,6 +40,7 @@ def get_image_data(dirs, image_size, batch_size, mode='resize', n_threads=8):
     ds = ds.prefetch(n_threads)
     it = ds.make_one_shot_iterator()
     samples.append(it.get_next())
+  print(samples)
   if len(samples) == 1:
     return samples[0]
   return samples
