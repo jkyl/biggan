@@ -7,7 +7,9 @@ import os
 
 def get_image_data(dirs, image_size, batch_size, mode='resize', n_threads=8):
   def read_and_decode(filename):
-    return tf.image.decode_image(tf.read_file(filename), channels=3)
+    x = tf.image.decode_image(tf.read_file(filename), channels=3)
+    print(x.shape)
+    return x
   def keep(img):
     return tf.reduce_min(tf.shape(img)[:2]) >= image_size
   def resize(img):
