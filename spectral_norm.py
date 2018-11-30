@@ -2,11 +2,12 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from tensorflow.python.framework.ops import control_dependencies
-from tensorflow.python.keras.engine import *
-from tensorflow.python.keras.layers import Conv2D, Dense
-from tensorflow.python.keras import initializers
-from tensorflow.python.keras import backend as K
+import tensorflow as tf
+from keras.engine import *
+from keras.layers import Conv2D, Dense
+from keras import initializers
+from keras import backend as K
+from keras.utils.generic_utils import get_custom_objects
 
 class ConvSN2D(Conv2D):
   def build(self, input_shape):
@@ -17,7 +18,7 @@ class ConvSN2D(Conv2D):
     if input_shape[channel_axis] is None:
       raise ValueError('The channel dimension of the inputs '
                        'should be defined. Found `None`.')
-    input_dim = input_shape.as_list()[channel_axis]
+    input_dim = input_shape[channel_axis]
     kernel_shape = self.kernel_size + (input_dim, self.filters)
     self.kernel = self.add_weight(shape=kernel_shape,
                                   initializer=self.kernel_initializer,
@@ -57,7 +58,7 @@ class ConvSN2D(Conv2D):
     if training in {0, False}:
       W_bar = K.reshape(W_bar, W_shape)
     else:
-      with control_dependencies([self.u.assign(_u)]):
+      with tf.control_dependencies([self.u.assign(_u)]):
         W_bar = K.reshape(W_bar, W_shape)
     outputs = K.conv2d(
       inputs,
@@ -78,7 +79,7 @@ class ConvSN2D(Conv2D):
 class DenseSN(Dense):
   def build(self, input_shape):
     assert len(input_shape) >= 2
-    input_dim = input_shape.as_list()[-1]
+    input_dim = input_shape[-1]
     self.kernel = self.add_weight(shape=(input_dim, self.units),
                                   initializer=self.kernel_initializer,
                                   name='kernel',
@@ -116,7 +117,7 @@ class DenseSN(Dense):
     if training in {0, False}:
       W_bar = K.reshape(W_bar, W_shape)
     else:
-      with control_dependencies([self.u.assign(_u)]):
+      with tf.control_dependencies([self.u.assign(_u)]):
         W_bar = K.reshape(W_bar, W_shape)
     output = K.dot(inputs, W_bar)
     if self.use_bias:
@@ -124,3 +125,5 @@ class DenseSN(Dense):
     if self.activation is not None:
       output = self.activation(output)
     return output
+
+get_custom_objects().update({'ConvSN2D': ConvSN2D, 'DenseSN': DenseSN})
