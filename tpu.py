@@ -40,7 +40,8 @@ def model_fn(features, labels, mode, params):
     L_G, L_D = model.hinge_loss(features, predictions)
     optimizer = tf.group(
       tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
-        1e-4, 0., 0.999)).minimize(L_G, var_list=model.G.trainable_weights),
+        1e-4, 0., 0.999)).minimize(L_G, var_list=model.G.trainable_weights,
+                                   step=tf.train.get_global_step()),
       tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
         4e-4, 0., 0.999)).minimize(L_D, var_list=model.D.trainable_weights))
     return tf.contrib.tpu.TPUEstimatorSpec(
