@@ -69,7 +69,7 @@ def main(argv):
       model_fn=model_fn,
       use_tpu=True,
       train_batch_size=FLAGS.batch_size,
-      params={'data_dir': FLAGS.data_dir},
+      params={'data_dir': FLAGS.data_dir, 'image_size': FLAGS.image_size, 'z_dim': FLAGS.z_dim},
       config=run_config)
   estimator.train(input_fn=input_fn, max_steps=FLAGS.train_steps)
 
