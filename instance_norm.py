@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import tensorflow as tf
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import initializers, regularizers, constraints
 from tensorflow.python.keras.engine import Layer, InputSpec
@@ -73,7 +74,7 @@ class InstanceNormalization(Layer):
     if self.axis is not None:
       reduction_axes.pop(self.axis)
     reduction_axes.pop(0)
-    mean, stddev = K.tf.nn.moments(inputs, reduction_axes, keep_dims=True)
+    mean, stddev = tf.nn.moments(inputs, reduction_axes, keep_dims=True)
     normed = (inputs - mean) / (stddev + self.epsilon)
     broadcast_shape = [1] * len(input_shape)
     if self.axis is not None:
