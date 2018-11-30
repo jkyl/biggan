@@ -23,7 +23,7 @@ tf.flags.DEFINE_string(
     'metadata.')
 tf.flags.DEFINE_string('data_dir', './', 'Path to directory containing the dataset')
 tf.flags.DEFINE_string('model_dir', None, 'Estimator model_dir')
-tf.flags.DEFINE_integer('batch_size', 1024,
+tf.flags.DEFINE_integer('batch_size', 64,
                         'Mini-batch size for the training. Note that this '
                         'is the global batch size and not the per-shard batch.')
 tf.flags.DEFINE_integer('image_size', 256, 'sidelength of images')
