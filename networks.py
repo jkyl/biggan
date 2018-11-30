@@ -6,7 +6,7 @@ import tensorflow as tf
 import numpy as np
 
 from layers import *
-from keras.models import Model
+from tensorflow.keras.models import Model
 
 def resnet_generator(output_size, channels, z_dim):
   z = x = Input((z_dim,))

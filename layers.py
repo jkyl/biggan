@@ -2,7 +2,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-from keras.layers import *
+from tensorflow.keras.layers import *
 from instance_norm import *
 from spectral_norm import *
 
