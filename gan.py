@@ -52,16 +52,16 @@ class GAN(object):
 
 def model_fn(features, labels, mode, params):
   del labels
-  model = gan.GAN(params['image_size'], params['channels'], params['z_dim'])
+  model = GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
   if mode == tf.estimator.ModeKeys.TRAIN:
     step = tf.train.get_global_step()
     L_G, L_D = model.hinge_loss(features, predictions)
     G_opt = tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
-        1e-4, 0., 0.999)).minimize(L_G,
-          var_list=model.G.trainable_weights, global_step=step)
+      1e-4, 0., 0.999)).minimize(L_G,
+        var_list=model.G.trainable_weights, global_step=step)
     D_opt = tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
-        4e-4, 0., 0.999)).minimize(L_D, var_list=model.D.trainable_weights)
+      4e-4, 0., 0.999)).minimize(L_D, var_list=model.D.trainable_weights)
     cond = lambda i: tf.less(i, 2)
     body = lambda i: tf.tuple([tf.add(i, 1), D_opt])[0]
     D_opt = tf.while_loop(cond, body, [tf.constant(0)])
