@@ -28,7 +28,7 @@ tf.flags.DEFINE_integer('image_size', 256, 'sidelength of images')
 tf.flags.DEFINE_integer('channels', 32, 'channel multiplier for G and D')
 tf.flags.DEFINE_integer('z_dim', 128, 'dimensionality of latent vector')
 tf.flags.DEFINE_integer('train_steps', 1000000, 'total number of training steps')
-tf.flags.DEFINE_integer('iterations_per_loop', default=10, 'num. steps per summary')
+tf.flags.DEFINE_integer('iterations_per_loop', 10, 'num. steps per summary')
 tf.flags.DEFINE_integer('num_shards', 8, 'number of shards')
 FLAGS = tf.flags.FLAGS
 
