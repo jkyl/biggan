@@ -33,6 +33,7 @@ FLAGS = tf.flags.FLAGS
 
 class GAN(object):
   def __init__(self, image_size, channels, z_dim, **kwargs):
+    print('entering init...')
     self.G, self.D = (
       nets.resnet_generator(image_size, channels, z_dim),
       nets.resnet_discriminator(image_size, channels))
