@@ -4,7 +4,6 @@ from __future__ import division
 
 import tensorflow as tf
 import data
-import gan
 
 tf.flags.DEFINE_string(
     'tpu', default=None,
