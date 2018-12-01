@@ -21,11 +21,9 @@ tf.flags.DEFINE_string(
     help='[Optional] Project name for the Cloud TPU-enabled project. If not '
     'specified, we will attempt to automatically detect the GCE project from '
     'metadata.')
-tf.flags.DEFINE_string('data_dir', './', 'Path to directory containing the dataset')
-tf.flags.DEFINE_string('model_dir', None, 'Estimator model_dir')
-tf.flags.DEFINE_integer('batch_size', 64,
-                        'Mini-batch size for the training. Note that this '
-                        'is the global batch size and not the per-shard batch.')
+tf.flags.DEFINE_string('data_dir', './', 'path to directory containing the dataset')
+tf.flags.DEFINE_string('model_dir', None, 'estimator model_dir')
+tf.flags.DEFINE_integer('batch_size', 64, 'batch size for training')
 tf.flags.DEFINE_integer('image_size', 256, 'sidelength of images')
 tf.flags.DEFINE_integer('channels', 32, 'channel multiplier for G and D')
 tf.flags.DEFINE_integer('z_dim', 128, 'dimensionality of latent vector')
@@ -53,23 +51,27 @@ class GAN(object):
     return L_G, L_D
 
 def model_fn(features, labels, mode, params):
+  del labels
   model = gan.GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
   if mode == tf.estimator.ModeKeys.TRAIN:
     L_G, L_D = model.hinge_loss(features, predictions)
-    optimizer = tf.group(
-      tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
+    G_opt = tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
         1e-4, 0., 0.999)).minimize(L_G, var_list=model.G.trainable_weights,
-                                   global_step=tf.train.get_global_step()),
-      tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
-        4e-4, 0., 0.999)).minimize(L_D, var_list=model.D.trainable_weights))
+                                   global_step=tf.train.get_global_step())
+    D_opt = tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
+        4e-4, 0., 0.999)).minimize(L_D, var_list=model.D.trainable_weights)
+    cond = lambda i: tf.less(i, 2)
+    body = lambda i: tf.tuple([tf.add(i, 1), D_opt])[0]
+    D_opt = tf.while_loop(cond, body, [tf.constant(0)])
+    train_op = tf.group(G_opt, D_opt)
     return tf.contrib.tpu.TPUEstimatorSpec(
-      mode=mode, loss=L_D, train_op=optimizer)
+      mode=mode, loss=L_D, train_op=train_op)
   raise NotImplementedError
 
 def input_fn(params):
-  return data.get_image_data(
-    params['data_dir'], params['image_size'], params['batch_size'])
+  return tf.print(data.get_image_data(
+    params['data_dir'], params['image_size'], params['batch_size']))
 
 def main(argv):
   del argv  # Unused.

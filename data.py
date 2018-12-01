@@ -47,7 +47,7 @@ def get_image_data(dirs, image_size, batch_size, n_threads=8):
   return samples
 
 def preprocess_img(img):
-  return tf.cast(img[..., ::-1], tf.float32) / 127.5 - 1
+  return tf.cast(img, tf.float32) / 127.5 - 1
 
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
