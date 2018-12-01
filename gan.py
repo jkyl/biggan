@@ -27,8 +27,9 @@ tf.flags.DEFINE_integer('batch_size', 64, 'batch size for training')
 tf.flags.DEFINE_integer('image_size', 256, 'sidelength of images')
 tf.flags.DEFINE_integer('channels', 32, 'channel multiplier for G and D')
 tf.flags.DEFINE_integer('z_dim', 128, 'dimensionality of latent vector')
-tf.flags.DEFINE_integer('train_steps', 1000000, 'Total number of training steps.')
-tf.flags.DEFINE_integer('num_shards', 8, 'Number of shards (TPU chips).')
+tf.flags.DEFINE_integer('train_steps', 1000000, 'total number of training steps')
+tf.flags.DEFINE_integer('iterations_per_loop', default=10, 'num. steps per summary')
+tf.flags.DEFINE_integer('num_shards', 8, 'number of shards')
 FLAGS = tf.flags.FLAGS
 
 class GAN(object):
@@ -55,18 +56,30 @@ def model_fn(features, labels, mode, params):
   model = gan.GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
   if mode == tf.estimator.ModeKeys.TRAIN:
+    step = tf.train.get_global_step()
     L_G, L_D = model.hinge_loss(features, predictions)
     G_opt = tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
-        1e-4, 0., 0.999)).minimize(L_G, var_list=model.G.trainable_weights,
-                                   global_step=tf.train.get_global_step())
+        1e-4, 0., 0.999)).minimize(L_G,
+          var_list=model.G.trainable_weights, global_step=step)
     D_opt = tf.contrib.tpu.CrossShardOptimizer(tf.train.AdamOptimizer(
         4e-4, 0., 0.999)).minimize(L_D, var_list=model.D.trainable_weights)
     cond = lambda i: tf.less(i, 2)
     body = lambda i: tf.tuple([tf.add(i, 1), D_opt])[0]
     D_opt = tf.while_loop(cond, body, [tf.constant(0)])
     train_op = tf.group(G_opt, D_opt)
+    def host_call(step, x, xhat, L_G, L_D):
+      with tf.contrib.summary.create_file_writer(
+        FLAGS.model_dir, max_queue=FLAGS.iterations_per_loop).as_default():
+        with tf.contrib.summary.always_record_summaries():
+          tf.contrib.summary.scalar('L_D', L_D, step=step)
+          tf.contrib.summary.scalar('L_G', L_G, step=step)
+          tf.contrib.summary.image('x', x, max_images=5, step=step)
+          tf.contrib.summary.image('xhat', xhat, max_images=5, step=step)
+          return summary.all_summary_ops()
+    x, xhat = [data.postprocess_img(i) for i in (features, predictions)]
+    host_call = (host_call_fn, [step, x, xhat, L_G, L_D])
     return tf.contrib.tpu.TPUEstimatorSpec(
-      mode=mode, loss=L_D, train_op=train_op)
+      mode=mode, loss=L_D, train_op=train_op, host_call=host_call)
   raise NotImplementedError
 
 def input_fn(params):
@@ -85,8 +98,10 @@ def main(argv):
       cluster=tpu_cluster_resolver,
       model_dir=FLAGS.model_dir,
       session_config=tf.ConfigProto(
-          allow_soft_placement=True, log_device_placement=True),
-      tpu_config=tf.contrib.tpu.TPUConfig(iterations_per_loop=100, num_shards=FLAGS.num_shards),
+        allow_soft_placement=True, log_device_placement=True),
+      tpu_config=tf.contrib.tpu.TPUConfig(
+        iterations_per_loop=FLAGS.iterations_per_loop,
+        num_shards=FLAGS.num_shards),
   )
   estimator = tf.contrib.tpu.TPUEstimator(
       model_fn=model_fn,
