@@ -52,7 +52,7 @@ class GAN(object):
     return L_G, L_D
 
 def model_fn(features, labels, mode, params):
-  print('entering model fn')
+  raise ValueError('entering model fn')
   model = GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
   if mode == tf.estimator.ModeKeys.TRAIN:
@@ -103,7 +103,6 @@ def main(argv):
         iterations_per_loop=FLAGS.iterations_per_loop,
         num_shards=FLAGS.num_shards),
   )
-  assert False
   estimator = tf.contrib.tpu.TPUEstimator(
       model_fn=model_fn,
       use_tpu=True,
