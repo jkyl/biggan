@@ -6,7 +6,6 @@ import tensorflow as tf
 import os
 
 def get_image_data(dirs, image_size, batch_size, n_threads=8):
-  assert False
   def read_and_decode(filename):
     x = tf.image.decode_image(tf.read_file(filename), channels=3)
     return x
@@ -25,6 +24,7 @@ def get_image_data(dirs, image_size, batch_size, n_threads=8):
     for ext in ['jpg', 'jpeg', 'png']:
       for ext in [ext.lower(), ext.upper()]:
         for depth in '*.', '*/*.':
+          print(path, depth, ext)
           files += tf.gfile.Glob(os.path.join(path, depth+ext))
     nf = len(files)
     print('found {} files'.format(nf))
