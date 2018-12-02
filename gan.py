@@ -103,7 +103,7 @@ def main(argv):
         iterations_per_loop=FLAGS.iterations_per_loop,
         num_shards=FLAGS.num_shards),
   )
-  print('est')
+  assert False
   estimator = tf.contrib.tpu.TPUEstimator(
       model_fn=model_fn,
       use_tpu=True,
