@@ -20,12 +20,7 @@ def get_image_data(dirs, image_size, batch_size, n_threads=8):
   if not type(dirs) in (tuple, list):
     dirs = [dirs]
   for path in dirs:
-    patterns = []
-    for ext in ['jpg', 'jpeg', 'png']:
-      for ext in [ext.lower(), ext.upper()]:
-        for depth in '*.', '*/*.':
-          patterns.append(os.path.join(path, depth+ext))
-    files = tf.gfile.Glob(patterns)
+    files = tf.gfile.Glob([os.path.join(path, '*.'+ext) for ext in ['jpg', 'jpeg', 'png']])
     nf = len(files)
     print('found {} files'.format(nf))
     if not nf:
