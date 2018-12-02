@@ -6,6 +6,7 @@ import tensorflow as tf
 import os
 
 def get_image_data(dirs, image_size, batch_size, n_threads=8):
+  assert False
   def read_and_decode(filename):
     x = tf.image.decode_image(tf.read_file(filename), channels=3)
     return x
