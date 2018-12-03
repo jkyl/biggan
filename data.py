@@ -6,11 +6,9 @@ import tensorflow as tf
 import os
 
 def get_image_data(dirs, image_size, batch_size, n_threads=8):
-  samples = tf.random.uniform(minval=-1, maxval=1, dtype=tf.float32, shape=(batch_size, image_size, image_size, 3))
-  print(samples)
-  return [samples]*2
   def read_and_decode(filename):
-    return tf.image.decode_image(tf.read_file(tf.print(filename)), channels=3)
+    with tf.control_dependencies([tf.print(filename)]):
+      return tf.image.decode_image(tf.read_file(filename), channels=3)
   def keep(img):
     return tf.reduce_min(tf.shape(img)[:2]) >= image_size
   def resize(img):
