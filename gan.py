@@ -53,6 +53,7 @@ class GAN(object):
     return L_G, L_D
 
 def model_fn(features, labels, mode, params):
+  assert False
   model = GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
   if mode == tf.estimator.ModeKeys.TRAIN:
