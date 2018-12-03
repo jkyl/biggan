@@ -67,19 +67,19 @@ def model_fn(features, labels, mode, params):
     body = lambda i: tf.tuple([tf.add(i, 1), D_opt])[0]
     D_opt = tf.while_loop(cond, body, [tf.constant(0)])
     train_op = tf.group(G_opt, D_opt)
-    def host_call(step, x, xhat, L_G, L_D):
-      with tf.contrib.summary.create_file_writer(
-        FLAGS.model_dir, max_queue=FLAGS.iterations_per_loop).as_default():
-        with tf.contrib.summary.always_record_summaries():
-          tf.contrib.summary.scalar('L_D', L_D, step=step)
-          tf.contrib.summary.scalar('L_G', L_G, step=step)
-          tf.contrib.summary.image('x', x, max_images=5, step=step)
-          tf.contrib.summary.image('xhat', xhat, max_images=5, step=step)
-          return tf.contrib.summary.all_summary_ops()
-    x, xhat = [data.postprocess_img(i) for i in (features, predictions)]
-    host_call = (host_call, [step, x, xhat, L_G, L_D])
+    #def host_call(step, x, xhat, L_G, L_D):
+    #  with tf.contrib.summary.create_file_writer(
+    #    FLAGS.model_dir, max_queue=FLAGS.iterations_per_loop).as_default():
+    #    with tf.contrib.summary.always_record_summaries():
+    #      tf.contrib.summary.scalar('L_D', L_D, step=step)
+    #      tf.contrib.summary.scalar('L_G', L_G, step=step)
+    #      tf.contrib.summary.image('x', x, max_images=5, step=step)
+    #      tf.contrib.summary.image('xhat', xhat, max_images=5, step=step)
+    #      return tf.contrib.summary.all_summary_ops()
+    #x, xhat = [data.postprocess_img(i) for i in (features, predictions)]
+    #host_call = (host_call, [step, x, xhat, L_G, L_D])
     return tf.contrib.tpu.TPUEstimatorSpec(
-      mode=mode, loss=L_D, train_op=train_op, host_call=host_call)
+      mode=mode, loss=L_D, train_op=train_op)#, host_call=host_call)
   raise NotImplementedError
 
 def input_fn(params):
