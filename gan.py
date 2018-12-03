@@ -65,7 +65,7 @@ class GAN(object):
     run_options = tf.RunOptions(report_tensor_allocations_upon_oom=True)
     with tf.Session() as sess:
       tf.train.start_queue_runners(sess=sess, coord=coord)
-      sess.run(tf.global_variables_initializer())
+      sess.run(tf.global_variables_initializer(), options=run_options)
       self.graph.finalize()
       progbar = tqdm.trange(int(1e6), disable=False)
       for i in progbar:
