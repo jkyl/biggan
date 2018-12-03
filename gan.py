@@ -77,7 +77,7 @@ def model_fn(features, labels, mode, params):
           tf.contrib.summary.image('x', x, max_images=5, step=step)
           tf.contrib.summary.image('xhat', xhat, max_images=5, step=step)
           return tf.contrib.summary.all_summary_ops()
-    x, xhat = [data.postprocess_img(i) for i in (features, predictions)]
+    x, xhat = [i*0.5+0.5 for i in (features, predictions)]
     host_call = (host_call, [x, xhat])
     return tf.contrib.tpu.TPUEstimatorSpec(
       mode=mode, loss=L_D, train_op=train_op, host_call=host_call)
