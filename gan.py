@@ -84,8 +84,8 @@ def model_fn(features, labels, mode, params):
   raise NotImplementedError
 
 def input_fn(params):
-  return tf.print(data.get_image_data(
-    params['data_dir'], params['image_size'], params['batch_size']))
+  return data.get_image_data(
+    params['data_dir'], params['image_size'], params['batch_size'])
 
 def main(argv):
   del argv  # Unused.
