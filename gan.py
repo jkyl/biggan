@@ -4,6 +4,7 @@ from __future__ import division
 
 import tensorflow as tf
 import data
+import nets
 
 tf.flags.DEFINE_string(
     'tpu', default=None,
@@ -52,7 +53,6 @@ class GAN(object):
     return L_G, L_D
 
 def model_fn(features, labels, mode, params):
-  raise ValueError('entering model fn')
   model = GAN(params['image_size'], params['channels'], params['z_dim'])
   predictions = model.G(tf.random.normal(shape=(params['batch_size'], params['z_dim'])))
   if mode == tf.estimator.ModeKeys.TRAIN:
