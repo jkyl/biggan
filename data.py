@@ -6,7 +6,7 @@ import tensorflow as tf
 import os
 
 def get_image_data(dirs, image_size, batch_size, n_threads=8):
-  return tf.random.uniform(-1, 1, dtype=tf.float32, shape=(batch_size, image_size, image_size, 3))
+  return tf.random.uniform(minval=-1, maxval=1, dtype=tf.float32, shape=(batch_size, image_size, image_size, 3))
   def read_and_decode(filename):
     return tf.image.decode_image(tf.read_file(tf.print(filename)), channels=3)
   def keep(img):
