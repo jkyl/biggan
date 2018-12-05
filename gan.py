@@ -24,7 +24,6 @@ class GAN(object):
     return L_G, L_D
 
 def model_fn(features, labels, mode, params):
-
   if mode != tf.estimator.ModeKeys.TRAIN:
     raise NotImplementedError
 
