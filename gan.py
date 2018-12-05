@@ -13,8 +13,6 @@ class GAN(object):
   def __init__(self, image_size, channels, z_dim):
     self.G = nets.resnet_generator(image_size, channels, z_dim)
     self.D = nets.resnet_discriminator(image_size, channels)
-    self.G.summary()
-    self.D.summary()
 
   def hinge_loss(self, x, z):
     logits_real = self.D(x)
@@ -82,22 +80,17 @@ def main(args):
       channels=args.channels,
       use_tpu=args.use_tpu,
       z_dim=args.z_dim,
-      n_D=args.n_D,
-    ),
+      n_D=args.n_D),
     config=tf.contrib.tpu.RunConfig(
       cluster=tf.contrib.cluster_resolver.TPUClusterResolver(
-        os.environ['TPU_NAME'] if args.use_tpu else ''
-      ),
+        os.environ['TPU_NAME'] if args.use_tpu else ''),
       model_dir=args.model_dir,
       session_config=tf.ConfigProto(
         allow_soft_placement=True,
-        log_device_placement=True
-      ),
+        log_device_placement=True),
       tpu_config=tf.contrib.tpu.TPUConfig(
         iterations_per_loop=10,
-        num_shards=8
-      )
-    )
+        num_shards=8))
   ).train(input_fn=input_fn, max_steps=1000000)
 
 if __name__ == '__main__':
