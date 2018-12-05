@@ -7,6 +7,7 @@ import argparse
 import data
 import nets
 import sys
+import os
 
 class GAN(object):
   def __init__(self, image_size, channels, z_dim):
