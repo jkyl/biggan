@@ -14,9 +14,9 @@ class GAN(object):
     self.G = nets.resnet_generator(image_size, channels, z_dim)
     self.D = nets.resnet_discriminator(image_size, channels)
 
-  def hinge_loss(self, x, z):
+  def hinge_loss(self, x, xhat):
     logits_real = self.D(x)
-    logits_fake = self.D(self.G(z))
+    logits_fake = self.D(xhat)
     L_G = -tf.reduce_mean(logits_fake)
     L_D = tf.reduce_mean(tf.nn.relu(1 - logits_real))\
         + tf.reduce_mean(tf.nn.relu(1 + logits_fake))
@@ -25,48 +25,36 @@ class GAN(object):
 def model_fn(features, labels, mode, params):
   if mode != tf.estimator.ModeKeys.TRAIN:
     raise NotImplementedError
-
   model = GAN(
     params['image_size'],
     params['channels'],
     params['z_dim'])
-
-  def update_fn(i):
-    z = tf.random.normal((params['batch_size'], params['z_dim']))
-    L_G, L_D = model.hinge_loss(features, z)
-
-    def update_D():
-      optim = tf.train.AdamOptimizer(4e-4, 0., 0.999)
-      if params['use_tpu']:
-        optim = tf.contrib.tpu.CrossShardOptimizer(optim)
-      return optim.minimize(L_D)
-
-    def update_G():
-      optim = tf.train.AdamOptimizer(1e-4, 0., 0.999)
-      if params['use_tpu']:
-        optim = tf.contrib.tpu.CrossShardOptimizer(optim)
-      return optim.minimize(L_G)
-
-    def update_both():
-      return tf.group(update_G(), update_D())
-
-    update_op = tf.cond(
-      tf.equal(i, params['n_D'] - 1),
-      update_both, update_D)
-
-    with tf.control_dependencies([update_op]):
-      return tf.add(i, 1)
-
-  train_op = tf.while_loop(
-    lambda i: tf.less(i, params['n_D']),
-    update_fn, [tf.constant(0)])
-
+  z = tf.random.normal((
+    params['batch_size'],
+    params['z_dim']))
+  predictions = model.G(z)
+  L_G, L_D = model.hinge_loss(features, predictions)
+  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999)
+  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999)
+  if params['use_tpu']:
+    G_opt = tf.contrib.tpu.CrossShardOptimizer(G_opt)
+    D_opt = tf.contrib.tpu.CrossShardOptimizer(D_opt)
+  step = tf.train.get_global_step()
+  with tf.control_dependencies([tf.print('step: ', step)]):
+    train_op = tf.cond(
+      tf.cast(tf.mod(step, params['n_D'] + 1), tf.bool),
+      lambda: G_opt.minimize(L_G,
+        var_list=model.G.trainable_weights, global_step=step),
+      lambda: D_opt.minimize(L_D,
+        var_list=model.D.trainable_weights, global_step=step))
   return tf.contrib.tpu.TPUEstimatorSpec(
-    mode=mode, loss=tf.zeros([]), train_op=train_op)
+    mode=mode, loss=L_D, train_op=train_op)
 
 def input_fn(params):
   return data.get_image_data(
-    params['data_dir'], params['image_size'], params['batch_size'])
+    params['data_dir'],
+    params['image_size'],
+    params['batch_size'])
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
@@ -87,7 +75,7 @@ def main(args):
       model_dir=args.model_dir,
       session_config=tf.ConfigProto(
         allow_soft_placement=True,
-        log_device_placement=True),
+        log_device_placement=False),
       tpu_config=tf.contrib.tpu.TPUConfig(
         iterations_per_loop=10,
         num_shards=8))
