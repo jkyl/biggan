@@ -5,8 +5,9 @@ from __future__ import print_function
 import tensorflow as tf
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras import initializers, regularizers, constraints
-from tensorflow.python.keras.engine import Layer, InputSpec
-from tensorflow.python.keras.utils.generic_utils import get_custom_objects
+from tensorflow.python.keras._impl.keras.engine import InputSpec, Layer
+from tensorflow.python.keras._impl.keras.utils.generic_utils import get_custom_objects
+
 
 class InstanceNormalization(Layer):
   '''Instance normalization layer (Lei Ba et al., 2016, Ulyanov et al., 2016).'''
