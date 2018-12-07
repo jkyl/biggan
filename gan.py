@@ -40,13 +40,14 @@ def model_fn(features, labels, mode, params):
     G_opt = tf.contrib.tpu.CrossShardOptimizer(G_opt)
     D_opt = tf.contrib.tpu.CrossShardOptimizer(D_opt)
   step = tf.train.get_global_step()
-  with tf.control_dependencies([tf.print('step: ', step)]):
+  with tf.control_dependencies([tf.print('step:', step)]):
     train_op = tf.cond(
       tf.cast(tf.mod(step, params['n_D'] + 1), tf.bool),
       lambda: G_opt.minimize(L_G,
         var_list=model.G.trainable_weights, global_step=step),
       lambda: D_opt.minimize(L_D,
         var_list=model.D.trainable_weights, global_step=step))
+  G_step = step // (params['n_D'] + 1)
   return tf.contrib.tpu.TPUEstimatorSpec(
     mode=mode, loss=L_D, train_op=train_op)
 
