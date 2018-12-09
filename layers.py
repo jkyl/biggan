@@ -3,7 +3,6 @@ from __future__ import print_function
 from __future__ import division
 
 from tensorflow.python.keras.layers import *
-from instance_norm import *
 from spectral_norm import *
 
 class Gain(Layer):
@@ -53,7 +52,7 @@ def g_block(x, dim, first=False, last=False):
   else:
     x0 = x
     for j in range(2):
-      x = InstanceNormalization(axis=-1, scale=False)(x)
+      x = BatchNormalization(axis=-1, scale=False)(x)
       x = Activation('relu')(x)
       if j == 0:
         x = SubPixel(2)(x)
@@ -62,7 +61,7 @@ def g_block(x, dim, first=False, last=False):
     x0 = ConvSN2D(dim, 1, use_bias=False, kernel_initializer='orthogonal')(x0)
     x = Add()([x, x0])
   if last:
-    x = InstanceNormalization(axis=-1, scale=False)(x)
+    x = BatchNormalization(axis=-1, scale=False)(x)
     x = Activation('relu')(x)
     x = ConvSN2D(3, 3, padding='same', kernel_initializer='orthogonal')(x)
     x = Activation('tanh')(x)
@@ -96,5 +95,3 @@ def d_block(x, dim, first=False, last=False):
     x = GlobalAveragePooling2D()(x)
     x = DenseSN(1)(x)
   return x
-
-
