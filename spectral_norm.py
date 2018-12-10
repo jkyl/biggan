@@ -6,8 +6,8 @@ import tensorflow as tf
 from tensorflow.python.keras import initializers
 from tensorflow.python.keras import backend as K
 from tensorflow.python.keras.layers import Conv2D, Dense
-from tensorflow.python.keras._impl.keras.engine import InputSpec, Layer
-from tensorflow.python.keras._impl.keras.utils.generic_utils import get_custom_objects
+from tensorflow.python.keras.engine import InputSpec, Layer
+from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
 class ConvSN2D(Conv2D):
   def build(self, input_shape):
@@ -43,7 +43,7 @@ class ConvSN2D(Conv2D):
     self.built = True
 
   def call(self, inputs, training=None):
-    def _l2normalize(v, eps=1e-12):
+    def _l2normalize(v, eps=1e-5):
       return v / (K.sum(v ** 2) ** 0.5 + eps)
     def power_iteration(W, u):
       _u = u
@@ -103,7 +103,7 @@ class DenseSN(Dense):
     self.built = True
 
   def call(self, inputs, training=None):
-    def _l2normalize(v, eps=1e-12):
+    def _l2normalize(v, eps=1e-5):
       return v / (K.sum(v ** 2) ** 0.5 + eps)
     def power_iteration(W, u):
       _u = u
