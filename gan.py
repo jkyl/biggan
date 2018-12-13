@@ -66,15 +66,19 @@ def model_fn(features, labels, mode, params):
 
   # save some tensorboard summaries
   def host_call_fn(step, features, predictions, L_G, L_D):
+    step = step[0]
     summary.create_file_writer(
       params['model_dir'], flush_millis=1000).set_as_default()
     with summary.always_record_summaries():
       summary.image('xhat', predictions*.5+.5, max_images=5, step=step)
       summary.image('x', features*.5+.5, max_images=5, step=step)
-      summary.scalar('L_G', L_G, step=step)
-      summary.scalar('L_D', L_D, step=step)
+      summary.scalar('L_G', L_G[0], step=step)
+      summary.scalar('L_D', L_D[0], step=step)
       return summary.all_summary_ops()
-  host_call = (host_call_fn, [G_step, features, predictions, L_G, L_D])
+  host_call = (host_call_fn,
+     [tf.tile(tf.expand_dims(t, 0), [params['train_batch_size'], 1])
+        if not len(t.shape.as_list()) else t
+          for t in [G_step, features, predictions, L_G, L_D]])
 
   # return an EstimatorSpec
   return tf.contrib.tpu.TPUEstimatorSpec(
