@@ -76,9 +76,9 @@ def model_fn(features, labels, mode, params):
       summary.scalar('L_D', L_D[0], step=step)
       return summary.all_summary_ops()
   host_call = (host_call_fn,
-     [tf.tile(tf.expand_dims(t, 0), [params['train_batch_size'], 1])
-        if not len(t.shape.as_list()) else t
-          for t in [G_step, features, predictions, L_G, L_D]])
+    [tf.tile(tf.expand_dims(t, 0), [params['train_batch_size'], 1])
+      if not len(t.shape.as_list()) else t
+        for t in [G_step, features, predictions, L_G, L_D]])
 
   # return an EstimatorSpec
   return tf.contrib.tpu.TPUEstimatorSpec(
