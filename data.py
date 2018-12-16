@@ -3,46 +3,72 @@ from __future__ import print_function
 from __future__ import division
 
 import tensorflow as tf
+import numpy as np
+import argparse
+import tqdm
+import glob
+import cv2
+import sys
 import os
-
-def get_image_data(dirs, image_size, batch_size, n_threads=8):
-  def read_and_decode(filename):
-    return tf.image.decode_image(tf.read_file(filename), channels=3)
-  def keep(img):
-    return tf.reduce_min(tf.shape(img)[:2]) >= image_size
-  def resize(img):
-    img = tf.image.resize_image_with_crop_or_pad(img, *(2*[
-      tf.reduce_min(tf.shape(img)[:2])]))
-    return tf.image.resize_images(img, 2*[image_size],
-      method=tf.image.ResizeMethod.AREA, align_corners=True)
-  samples = []
-  if not type(dirs) in (tuple, list):
-    dirs = [dirs]
-  for path in dirs:
-    files = tf.gfile.Glob(os.path.join(path, '*.png'))
-    nf = len(files)
-    print('found {} files'.format(nf))
-    if not nf:
-      raise ValueError('must provide directory with pngs')
-    ds = tf.data.Dataset.from_tensor_slices(files)
-    ds = ds.shuffle(nf, reshuffle_each_iteration=True)
-    ds = ds.repeat()
-    ds = ds.map(read_and_decode, n_threads)
-    ds = ds.filter(keep)
-    ds = ds.map(resize, n_threads)
-    ds = ds.batch(batch_size)
-    ds = ds.map(preprocess_img)
-    ds = ds.prefetch(n_threads)
-    it = ds.make_one_shot_iterator()
-    samp = it.get_next()
-    samp.set_shape((batch_size, image_size, image_size, 3))
-    samples.append(samp)
-  if len(samples) == 1:
-    return samples[0]
-  return samples
 
 def preprocess_img(img):
   return tf.cast(img, tf.float32) / 127.5 - 1
 
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
+
+def get_train_data(npz_file, batch_size, n_threads=2):
+  print('loading dataset into memory...')
+  data = np.load(npz_file)['data']
+  n, h, w, c = data.shape
+  print('done!')
+  def gen():
+    while 1:
+      yield data[np.random.choice(n, size=batch_size, replace=False)]
+  ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
+  ds = ds.repeat()
+  ds = ds.map(preprocess_img)
+  ds = ds.prefetch(n_threads)
+  it = ds.make_one_shot_iterator()
+  batch = it.get_next()
+  return batch
+
+def main(args):
+  files = []
+  for ext in ('jpg', 'jpeg', 'png'):
+    for case in (ext.lower(), ext.upper()):
+      for depth in ('*.', '*/*.'):
+        files += glob.glob(os.path.join(args.data_dir, depth + case))
+  arr = np.zeros((len(files), args.image_size, args.image_size, 3), dtype=np.uint8)
+  i = 0
+  for f in tqdm.tqdm(files):
+    image = cv2.imread(f)
+    size = image.shape[:2]
+    min_dim = np.argmin(size)
+    if size[min_dim] >= args.image_size:
+      try:
+        max_dim = int(not min_dim)
+        crop_start = (size[max_dim] - size[min_dim]) // 2
+        crop_stop = crop_start + size[min_dim]
+        crop = [slice(crop_start, crop_stop, None) if i == max_dim
+          else slice(None, None, None) for i in (0, 1)]
+        crop += [slice(None, None, -1)]
+        image = image[crop]
+        image = cv2.resize(image, (args.image_size, args.image_size),
+          interpolation=cv2.INTER_AREA)
+        arr[i] = image
+        i += 1
+      except Exception as e:
+        print(e)
+  np.savez(args.output_npz, data=arr[:i])
+
+if __name__ == '__main__':
+  p = argparse.ArgumentParser(
+    formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+  p.add_argument('data_dir', type=str,
+    help='directory containing training PNGs and/or JPGs')
+  p.add_argument('output_npz', type=str,
+    help='.npz file in which to save preprocessed images')
+  p.add_argument('-is', '--image_size', type=int, default=128,
+    help='size of downsampled images')
+  sys.exit(main(p.parse_args()))

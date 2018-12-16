@@ -11,6 +11,7 @@ import sys
 import os
 
 def model_fn(features, labels, mode, params):
+  del labels # unused
 
   # set the learning phase and float precision
   tf.keras.backend.set_learning_phase(True)
@@ -46,8 +47,8 @@ def model_fn(features, labels, mode, params):
       + tf.reduce_mean(tf.nn.relu(1 + logits_fake))
 
   # two-timescale update rule
-  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, 1e-4)
-  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, 1e-4)
+  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, 1e-5)
+  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, 1e-5)
   if params['use_tpu']:
     G_opt = tf.contrib.tpu.CrossShardOptimizer(G_opt)
     D_opt = tf.contrib.tpu.CrossShardOptimizer(D_opt)
@@ -64,7 +65,7 @@ def model_fn(features, labels, mode, params):
     return tf.group(train_G(), train_D())
   train_op = tf.cond(only_train_D, train_D, train_both)
 
-  # save some tensorboard summaries
+  # create some tensorboard summaries on CPU
   def host_call_fn(step, features, predictions, L_G, L_D):
     step = step[0]
     summary.create_file_writer(
@@ -75,10 +76,8 @@ def model_fn(features, labels, mode, params):
       summary.scalar('L_G', L_G[0], step=step)
       summary.scalar('L_D', L_D[0], step=step)
       return summary.all_summary_ops()
-  host_call = (host_call_fn,
-    [tf.tile(tf.expand_dims(t, 0), [params['train_batch_size'], 1])
-      if not len(t.shape.as_list()) else t
-        for t in [G_step, features, predictions, L_G, L_D]])
+  host_call = (host_call_fn, [t if len(t.shape) else tf.expand_dims(
+    t, 0) for t in [G_step, features, predictions, L_G, L_D]])
 
   # return an EstimatorSpec
   return tf.contrib.tpu.TPUEstimatorSpec(
@@ -98,19 +97,16 @@ def main(args):
       cluster=tf.contrib.cluster_resolver.TPUClusterResolver(
         os.environ['TPU_NAME']) if args.use_tpu else None))
 
-  estimator.train(input_fn=lambda params:
-    data.get_image_data(
-      args.data_dir,
-      args.image_size,
-      args.train_batch_size), max_steps=1000000)
+  estimator.train(input_fn=lambda params: data.get_train_data(
+    args.data_file, args.train_batch_size), max_steps=1000000)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
-  p.add_argument('data_dir', type=str,
-    help='directory containing training PNGs and/or JPGs')
+  p.add_argument('data_file', type=str,
+    help='.npz file containing preprocessed image data')
   p.add_argument('model_dir', type=str,
-    help='directory in which to save checkpoints and summaries')
+    help='directory in which to save checkpoints and summaries. may be remote.')
   p.add_argument('-tpu', '--use_tpu', action='store_true',
     help='whether to use a TPU cluster')
   p.add_argument('-bs', '--train_batch_size', type=int, default=64,
