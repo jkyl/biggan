@@ -17,6 +17,8 @@ def model_fn(features, labels, mode, params):
   tf.keras.backend.set_learning_phase(True)
   tf.keras.backend.set_floatx(params['dtype'])
   features = tf.cast(features, params['dtype'])
+  if params['dtype'] == 'float16':
+    tf.keras.backend.set_epsilon(1e-5)
 
   # build the generator
   G = nets.resnet_generator(
@@ -29,31 +31,32 @@ def model_fn(features, labels, mode, params):
     params['image_size'],
     params['channels'])
 
-  # sample latent vector `z` from N(0, 1)
+  # sample z from max(N(0,1),0)
   z = tf.random_normal((
     params['train_batch_size'],
     params['z_dim']), dtype=params['dtype'])
+  z = tf.maximum(z, tf.zeros_like(z))
 
-  # generate an image from `z`
+  # generate image from z
   predictions = G(z)
 
   # discriminate real and fake images
   logits_real = D(features)
   logits_fake = D(predictions)
 
-  # "hinge" loss function
+  # hinge loss function
   L_G = -tf.reduce_mean(logits_fake)
-  L_D = tf.reduce_mean(tf.nn.relu(1 - logits_real))\
-      + tf.reduce_mean(tf.nn.relu(1 + logits_fake))
+  L_D = tf.reduce_mean(tf.nn.relu(1. - logits_real))\
+      + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
 
   # two-timescale update rule
-  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, 1e-5)
-  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, 1e-5)
+  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, tf.keras.backend.epsilon())
+  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, tf.keras.backend.epsilon())
   if params['use_tpu']:
     G_opt = tf.contrib.tpu.CrossShardOptimizer(G_opt)
     D_opt = tf.contrib.tpu.CrossShardOptimizer(D_opt)
 
-  # every `n_D` steps, update both networks.
+  # every n_D steps, update both networks.
   # otherwise, just update the discriminator
   G_step, D_step = tf.train.get_global_step(), tf.Variable(0)
   only_train_D = tf.cast(tf.mod(D_step, params['n_D']), tf.bool)
@@ -79,12 +82,13 @@ def model_fn(features, labels, mode, params):
   host_call = (host_call_fn, [t if len(t.shape) else tf.expand_dims(
     t, 0) for t in [G_step, features, predictions, L_G, L_D]])
 
-  # return an EstimatorSpec
+  # return an TPUEstimatorSpec
   return tf.contrib.tpu.TPUEstimatorSpec(
     mode=mode, loss=L_D, train_op=train_op, host_call=host_call)
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
+
   estimator = tf.contrib.tpu.TPUEstimator(
     model_fn=model_fn,
     params=args.__dict__,
@@ -106,21 +110,21 @@ if __name__ == '__main__':
   p.add_argument('data_file', type=str,
     help='.npz file containing preprocessed image data')
   p.add_argument('model_dir', type=str,
-    help='directory in which to save checkpoints and summaries. may be remote.')
+    help='directory in which to save checkpoints and summaries')
   p.add_argument('-tpu', '--use_tpu', action='store_true',
-    help='whether to use a TPU cluster')
+    help='whether to attempt to use a TPU cluster')
   p.add_argument('-bs', '--train_batch_size', type=int, default=64,
     help='number of samples per minibatch update')
-  p.add_argument('-is', '--image_size', type=int, default=128,
+  p.add_argument('-is', '--image_size', type=int, default=256,
     help='size of generated and real images')
-  p.add_argument('-ch', '--channels', type=int, default=64,
+  p.add_argument('-ch', '--channels', type=int, default=16,
     help='channel multiplier in G and D')
   p.add_argument('-zd', '--z_dim', type=int, default=128,
     help='dimensionality of latent vector')
-  p.add_argument('-nd', '--n_D', type=int, default=1,
+  p.add_argument('-nd', '--n_D', type=int, default=2,
     help='number of D updates per G update')
   p.add_argument('-nl', '--n_per_loop', type=int, default=100,
-    help='number of G updates per single execution of train_op')
+    help='number of G updates per update loop')
   p.add_argument('-dt', '--dtype', choices=('float32', 'float16'),
-    default='float32', help='training float precision')
+    default='float16', help='training float precision')
   sys.exit(main(p.parse_args()))

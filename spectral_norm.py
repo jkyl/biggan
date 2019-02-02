@@ -43,7 +43,7 @@ class ConvSN2D(Conv2D):
     self.built = True
 
   def call(self, inputs, training=None):
-    def _l2normalize(v, eps=1e-5):
+    def _l2normalize(v, eps=1e-4):
       return v / (K.sum(v ** 2) ** 0.5 + eps)
     def power_iteration(W, u):
       _u = u
@@ -103,7 +103,7 @@ class DenseSN(Dense):
     self.built = True
 
   def call(self, inputs, training=None):
-    def _l2normalize(v, eps=1e-5):
+    def _l2normalize(v, eps=1e-4):
       return v / (K.sum(v ** 2) ** 0.5 + eps)
     def power_iteration(W, u):
       _u = u

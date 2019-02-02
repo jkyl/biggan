@@ -5,9 +5,7 @@ from __future__ import division
 import tensorflow as tf
 import numpy as np
 import argparse
-import tqdm
 import glob
-import cv2
 import sys
 import os
 
@@ -17,23 +15,22 @@ def preprocess_img(img):
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
-def get_train_data(npz_file, batch_size, n_threads=2):
+def get_train_data(npz_file, batch_size, n_threads=8):
   print('loading dataset into memory...')
   data = np.load(npz_file)['data']
   n, h, w, c = data.shape
   print('done!')
   def gen():
     while 1:
-      yield data[np.random.choice(n, size=batch_size, replace=False)]
+      yield data[np.random.randint(n, size=batch_size)]
   ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
-  ds = ds.repeat()
-  ds = ds.map(preprocess_img)
-  ds = ds.prefetch(n_threads)
-  it = ds.make_one_shot_iterator()
-  batch = it.get_next()
-  return batch
+  ds = ds.map(preprocess_img, n_threads)
+  ds = ds.prefetch(1)
+  return ds.make_one_shot_iterator().get_next()
 
 def main(args):
+  import tqdm
+  import cv2
   files = []
   for ext in ('jpg', 'jpeg', 'png'):
     for case in (ext.lower(), ext.upper()):
@@ -58,8 +55,8 @@ def main(args):
           interpolation=cv2.INTER_AREA)
         arr[i] = image
         i += 1
-      except Exception as e:
-        print(e)
+      except:
+        continue
   np.savez(args.output_npz, data=arr[:i])
 
 if __name__ == '__main__':
