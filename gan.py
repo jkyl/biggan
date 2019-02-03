@@ -18,7 +18,7 @@ def model_fn(features, labels, mode, params):
   tf.keras.backend.set_floatx(params['dtype'])
   features = tf.cast(features, params['dtype'])
   if params['dtype'] == 'float16':
-    tf.keras.backend.set_epsilon(1e-5)
+    tf.keras.backend.set_epsilon(1e-4)
 
   # build the generator
   G = nets.resnet_generator(
@@ -31,7 +31,7 @@ def model_fn(features, labels, mode, params):
     params['image_size'],
     params['channels'])
 
-  # sample z from max(N(0,1),0)
+  # sample z from max(N(0,1), 0)
   z = tf.random_normal((
     params['train_batch_size'],
     params['z_dim']), dtype=params['dtype'])
