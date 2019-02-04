@@ -64,8 +64,8 @@ def model_fn(features, labels, mode, params):
   train_op = tf.cond(only_train_D, train_D, train_both)
 
   # create some tensorboard summaries
-  tf.summary.image('xhat', predictions * .5 + .5, max_images=5)
-  tf.summary.image('x', features * .5 + .5, max_images=5)
+  tf.summary.image('xhat', predictions * .5 + .5, 5)
+  tf.summary.image('x', features * .5 + .5, 5)
   tf.summary.scalar('L_G', L_G[0])
   tf.summary.scalar('L_D', L_D[0])
 
