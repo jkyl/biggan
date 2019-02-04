@@ -3,12 +3,10 @@ from __future__ import print_function
 from __future__ import division
 
 import tensorflow as tf
-from tensorflow.contrib import summary
 import argparse
 import data
 import nets
 import sys
-import os
 
 def model_fn(features, labels, mode, params):
   del labels # unused
@@ -68,38 +66,25 @@ def model_fn(features, labels, mode, params):
     return tf.group(train_G(), train_D())
   train_op = tf.cond(only_train_D, train_D, train_both)
 
-  # create some tensorboard summaries on CPU
-  def host_call_fn(step, features, predictions, L_G, L_D):
-    step = step[0]
-    summary.create_file_writer(
-      params['model_dir'], flush_millis=1000).set_as_default()
-    with summary.always_record_summaries():
-      summary.image('xhat', predictions*.5+.5, max_images=5, step=step)
-      summary.image('x', features*.5+.5, max_images=5, step=step)
-      summary.scalar('L_G', L_G[0], step=step)
-      summary.scalar('L_D', L_D[0], step=step)
-      return summary.all_summary_ops()
-  host_call = (host_call_fn, [t if len(t.shape) else tf.expand_dims(
-    t, 0) for t in [G_step, features, predictions, L_G, L_D]])
+  # create some tensorboard summaries
+  tf.summary.image('xhat', predictions * .5 + .5, max_images=5)
+  tf.summary.image('x', features * .5 + .5, max_images=5)
+  tf.summary.scalar('L_G', L_G[0])
+  tf.summary.scalar('L_D', L_D[0])
 
   # return an TPUEstimatorSpec
-  return tf.contrib.tpu.TPUEstimatorSpec(
-    mode=mode, loss=L_D, train_op=train_op, host_call=host_call)
+  return tf.estimator.EstimatorSpec(
+    mode=mode, loss=L_D, train_op=train_op)
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
 
-  estimator = tf.contrib.tpu.TPUEstimator(
+  estimator = tf.estimator.TPUEstimator(
     model_fn=model_fn,
-    params=args.__dict__,
-    use_tpu=args.use_tpu,
-    train_batch_size=args.train_batch_size,
-    config=tf.contrib.tpu.RunConfig(
-      model_dir=args.model_dir,
-      tpu_config=tf.contrib.tpu.TPUConfig(
-        iterations_per_loop=args.n_per_loop, num_shards=8),
-      cluster=tf.contrib.cluster_resolver.TPUClusterResolver(
-        os.environ['TPU_NAME']) if args.use_tpu else None))
+    params=vars(args),
+    config=tf.estimator.RunConfig(
+      train_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=4),
+      model_dir=args.model_dir))
 
   estimator.train(input_fn=lambda params: data.get_train_data(
     args.data_file, args.train_batch_size), max_steps=1000000)
@@ -111,8 +96,6 @@ if __name__ == '__main__':
     help='.npz file containing preprocessed image data')
   p.add_argument('model_dir', type=str,
     help='directory in which to save checkpoints and summaries')
-  p.add_argument('-tpu', '--use_tpu', action='store_true',
-    help='whether to attempt to use a TPU cluster')
   p.add_argument('-bs', '--train_batch_size', type=int, default=64,
     help='number of samples per minibatch update')
   p.add_argument('-is', '--image_size', type=int, default=256,
