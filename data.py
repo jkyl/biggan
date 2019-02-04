@@ -31,7 +31,7 @@ def get_train_data(npz_file, batch_size, n_threads=8):
       yield data[np.random.randint(n, size=batch_size)]
   ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
   ds = ds.map(preprocess_img, n_threads)
-  ds = ds.prefetch()
+  ds = ds.prefetch(1)
   return ds
 
 def main(args):
