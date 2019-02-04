@@ -37,7 +37,8 @@ class ConvSN2D(Conv2D):
     self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
                              initializer=initializers.RandomNormal(0, 1),
                              name='sn',
-                             trainable=False)
+                             trainable=False,
+                             aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(ndim=self.rank + 2,
                                 axes={channel_axis: input_dim})
     self.built = True
@@ -98,7 +99,8 @@ class DenseSN(Dense):
     self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
                              initializer=initializers.RandomNormal(0, 1),
                              name='sn',
-                             trainable=False)
+                             trainable=False,
+                             aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
     self.built = True
 
