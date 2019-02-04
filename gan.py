@@ -79,7 +79,7 @@ def model_fn(features, labels, mode, params):
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
 
-  estimator = tf.estimator.TPUEstimator(
+  estimator = tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
     config=tf.estimator.RunConfig(
