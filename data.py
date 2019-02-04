@@ -12,7 +12,8 @@ import os
 def get_gpus():
   from tensorflow.python.client import device_lib
   local_device_protos = device_lib.list_local_devices()
-  return [x.name for x in local_device_protos if x.device_type == 'GPU']
+  n = len([x for x in local_device_protos if x.device_type == 'GPU'])
+  return ['GPU:'+str(i) for i in range(n)]
 
 def preprocess_img(img):
   return tf.cast(img, tf.float32) / 127.5 - 1
