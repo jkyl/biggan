@@ -53,13 +53,15 @@ def model_fn(features, labels, mode, params):
 
   # every n_D steps, update both networks.
   # otherwise, just update the discriminator
-  G_step, D_step = tf.train.get_global_step(), tf.Variable(0)
-  only_train_D = tf.cast(tf.mod(D_step, params['n_D'] + 1), tf.bool)
+  G_step, D_step = tf.train.get_global_step(), tf.Variable(0, dtype=tf.int64)
+  only_train_D = tf.cast(tf.mod(D_step, params['n_D']), tf.bool)
   def train_G():
     return G_opt.minimize(L_G, G_step, G.trainable_weights)
   def train_D():
     return D_opt.minimize(L_D, D_step, D.trainable_weights)
-  train_op = tf.cond(only_train_D, train_D, train_G)
+  def train_both():
+    return tf.group(train_G(), train_D())
+  train_op = tf.cond(only_train_D, train_D, train_both)
 
   # create some tensorboard summaries
   tf.summary.image('xhat', predictions * .5 + .5, 5)
