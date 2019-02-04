@@ -83,7 +83,8 @@ def main(args):
     model_fn=model_fn,
     params=vars(args),
     config=tf.estimator.RunConfig(
-      train_distribute=tf.contrib.distribute.MirroredStrategy(num_gpus=4),
+      train_distribute=tf.distribute.MirroredStrategy(
+        devices=data.get_gpus()),
       model_dir=args.model_dir))
 
   estimator.train(input_fn=lambda params: data.get_train_data(
