@@ -50,9 +50,6 @@ def model_fn(features, labels, mode, params):
   # two-timescale update rule
   G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, tf.keras.backend.epsilon())
   D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, tf.keras.backend.epsilon())
-  if params['use_tpu']:
-    G_opt = tf.contrib.tpu.CrossShardOptimizer(G_opt)
-    D_opt = tf.contrib.tpu.CrossShardOptimizer(D_opt)
 
   # every n_D steps, update both networks.
   # otherwise, just update the discriminator
