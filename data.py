@@ -26,7 +26,7 @@ def get_train_data(npz_file, batch_size, n_threads=8):
   ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
   ds = ds.map(preprocess_img, n_threads)
   ds = ds.prefetch(1)
-  return ds.make_one_shot_iterator().get_next()
+  return ds
 
 def main(args):
   import tqdm
