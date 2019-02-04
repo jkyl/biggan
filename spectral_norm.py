@@ -24,12 +24,14 @@ class ConvSN2D(Conv2D):
     self.kernel = self.add_weight(shape=kernel_shape,
                                   initializer=self.kernel_initializer,
                                   name='kernel',
+                                  dtype=K.floatx(),
                                   regularizer=self.kernel_regularizer,
                                   constraint=self.kernel_constraint)
     if self.use_bias:
       self.bias = self.add_weight(shape=(self.filters,),
                                   initializer=self.bias_initializer,
                                   name='bias',
+                                  dtype=K.floatx(),
                                   regularizer=self.bias_regularizer,
                                   constraint=self.bias_constraint)
     else:
@@ -37,6 +39,7 @@ class ConvSN2D(Conv2D):
     self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
                              initializer=initializers.RandomNormal(0, 1),
                              name='sn',
+                             dtype=K.floatx(),
                              trainable=False,
                              aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(ndim=self.rank + 2,
