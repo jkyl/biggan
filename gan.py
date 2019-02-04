@@ -60,10 +60,8 @@ def model_fn(features, labels, mode, params):
     return G_opt.minimize(L_G, G_step, G.trainable_weights)
   def train_D():
     return D_opt.minimize(L_D, D_step, D.trainable_weights)
-  def train_both():
-    with tf.control_dependencies([train_G(), train_D()]):
-      return G_step
-  train_op = train_both()#tf.cond(only_train_D, train_D, train_both)
+  train_op = tf.group(train_G(), train_D())
+  #tf.cond(only_train_D, train_D, train_both)
 
   # create some tensorboard summaries
   tf.summary.image('xhat', predictions * .5 + .5, 5)
