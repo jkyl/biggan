@@ -56,9 +56,9 @@ def model_fn(features, labels, mode, params):
   G_step, D_step = tf.train.get_global_step(), tf.Variable(0)
   only_train_D = tf.cast(tf.mod(D_step, params['n_D']), tf.bool)
   def train_G():
-    return G_opt.minimize(L_G, G_step, G.trainable_weights)
+    return tf.group(G_opt.minimize(L_G, G_step, G.trainable_weights))
   def train_D():
-    return D_opt.minimize(L_D, D_step, D.trainable_weights)
+    return tf.group(D_opt.minimize(L_D, D_step, D.trainable_weights))
   def train_both():
     return tf.group(train_G(), train_D())
   train_op = tf.cond(only_train_D, train_D, train_both)
