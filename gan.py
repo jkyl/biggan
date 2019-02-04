@@ -66,8 +66,8 @@ def model_fn(features, labels, mode, params):
   # create some tensorboard summaries
   tf.summary.image('xhat', predictions * .5 + .5, 5)
   tf.summary.image('x', features * .5 + .5, 5)
-  tf.summary.scalar('L_G', L_G[0])
-  tf.summary.scalar('L_D', L_D[0])
+  tf.summary.scalar('L_G', L_G)
+  tf.summary.scalar('L_D', L_D)
 
   # return an TPUEstimatorSpec
   return tf.estimator.EstimatorSpec(
