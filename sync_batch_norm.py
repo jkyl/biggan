@@ -2,10 +2,8 @@ from __future__ import absolute_import
 from __future__ import division
 from __future__ import print_function
 
+import tensorflow as tf
 from tensorflow.python.keras import backend as K
-from tensorflow.python.keras import constraints
-from tensorflow.python.keras import initializers
-from tensorflow.python.keras import regularizers
 from tensorflow.python.keras.engine.base_layer import InputSpec
 from tensorflow.python.keras.engine.base_layer import Layer
 
@@ -52,14 +50,14 @@ class SyncBatchNorm(Layer):
     self.built = True
 
   def call(self, inputs):
-    ctx = K.tf.distribute.get_replica_context()
+    ctx = tf.distribute.get_replica_context()
     n = ctx.num_replicas_in_sync
     mean = K.mean(inputs, axis=0)
     mean_sq = K.mean(inputs**2, axis=0)
     global_mean, global_mean_sq = ctx.all_reduce([
-      mean / n, mean_sq / n], aggregation=K.tf.VariableAggregation.SUM)
+      mean / n, mean_sq / n], aggregation=tf.VariableAggregation.SUM)
     global_variance = global_mean_sq - global_mean**2
-    return K.tf.nn.batch_normalization(
+    return tf.nn.batch_normalization(
       inputs, global_mean, global_variance,
       offset=self.beta, scale=self.gamma, variance_epsilon=self.epsilon)
 
