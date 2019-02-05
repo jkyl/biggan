@@ -51,21 +51,15 @@ def model_fn(features, labels, mode, params):
   G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, tf.keras.backend.epsilon())
   D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, tf.keras.backend.epsilon())
 
-  # every n_D steps, update both networks.
-  # otherwise, just update the discriminator
+  # following SAGAN, nD = 1
   G_step = tf.train.get_global_step()
-  D_step = tf.Variable(0, dtype=G_step.dtype)
-  #only_train_D = tf.cast(tf.mod(D_step, params['n_D']), tf.bool)
-  def train_G():
-    return G_opt.minimize(L_G, G_step, G.trainable_weights)
-  def train_D():
-    return D_opt.minimize(L_D, D_step, D.trainable_weights)
-  train_op = tf.group(train_G(), train_D())
-  #tf.cond(only_train_D, train_D, train_both)
+  train_op = tf.group(
+    G_opt.minimize(L_G, G_step, G.trainable_weights),
+    D_opt.minimize(L_D, var_list=D.trainable_weights))
 
   # create some tensorboard summaries
-  tf.summary.image('xhat', predictions * .5 + .5, 5)
-  tf.summary.image('x', features * .5 + .5, 5)
+  tf.summary.image('xhat', data.postprocess_img(predictions), 5)
+  tf.summary.image('x', data.postprocess_img(features), 5)
   tf.summary.scalar('L_G', L_G)
   tf.summary.scalar('L_D', L_D)
 
@@ -102,8 +96,6 @@ if __name__ == '__main__':
     help='channel multiplier in G and D')
   p.add_argument('-zd', '--z_dim', type=int, default=128,
     help='dimensionality of latent vector')
-  p.add_argument('-nd', '--n_D', type=int, default=2,
-    help='number of D updates per G update')
   p.add_argument('-nl', '--n_per_loop', type=int, default=100,
     help='number of G updates per update loop')
   p.add_argument('-dt', '--dtype', choices=('float32', 'float16'),
