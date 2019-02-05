@@ -15,7 +15,7 @@ def get_gpus():
   return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
 def preprocess_img(img):
-  return tf.cast(img, tf.float32) / 127.5 - 1
+  return tf.cast(img, tf.float16) / 127.5 - 1
 
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
@@ -31,7 +31,7 @@ def get_train_data(npz_file, batch_size, n_threads=8):
       yield data[np.random.randint(n, size=batch_size)]
   ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
   ds = ds.map(preprocess_img, n_threads)
-  ds = ds.prefetch(1)
+  ds = ds.prefetch(n_threads)
   return ds
 
 def main(args):

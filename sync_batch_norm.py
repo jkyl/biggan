@@ -39,16 +39,14 @@ class SyncBatchNorm(Layer):
       self.gamma = self.add_weight(shape=shape,
                                    name='gamma',
                                    initializer='ones',
-                                   use_resource=True,
-                                   synchronization=tf.VariableSynchronization.ON_WRITE)
+                                   )
     else:
       self.gamma = None
     if self.center:
       self.beta = self.add_weight(shape=shape,
                                   name='beta',
                                   initializer='zeros',
-                                  use_resource=True,
-                                  synchronization=tf.VariableSynchronization.ON_WRITE)
+                                  )
     else:
       self.beta = None
     self.built = True
