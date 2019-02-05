@@ -26,6 +26,7 @@ class ConvSN2D(Conv2D):
                                   name='kernel',
                                   dtype=K.floatx(),
                                   use_resource=True,
+                                  synchronization=tf.VariableSynchronization.ON_WRITE,
                                   regularizer=self.kernel_regularizer,
                                   constraint=self.kernel_constraint)
     if self.use_bias:
@@ -34,6 +35,7 @@ class ConvSN2D(Conv2D):
                                   name='bias',
                                   dtype=K.floatx(),
                                   use_resource=True,
+                                  synchronization=tf.VariableSynchronization.ON_WRITE,
                                   regularizer=self.bias_regularizer,
                                   constraint=self.bias_constraint)
     else:
@@ -95,6 +97,8 @@ class DenseSN(Dense):
                                   name='kernel',
                                   dtype=K.floatx(),
                                   use_resource=True,
+                                  synchronization=tf.VariableSynchronization.ON_WRITE,
+                                  aggregation=tf.VariableAggregation.MEAN,
                                   regularizer=self.kernel_regularizer,
                                   constraint=self.kernel_constraint)
     if self.use_bias:
@@ -103,6 +107,8 @@ class DenseSN(Dense):
                                   name='bias',
                                   dtype=K.floatx(),
                                   use_resource=True,
+                                  synchronization=tf.VariableSynchronization.ON_WRITE,
+                                  aggregation=tf.VariableAggregation.MEAN,
                                   regularizer=self.bias_regularizer,
                                   constraint=self.bias_constraint)
     else:
