@@ -8,6 +8,10 @@ def make_bn_model():
   y = SyncBatchNorm()(x)
   return Model(inputs=x, outputs=y)
 
-if __name__ == '__main__':
+def test():
   model = make_bn_model()
-  model.predict(np.ones((1, 64, 64, 1)))
+  inputs = np.random.normal(size=(4, 64, 64, 1))
+  inputs *= 2
+  inputs += 1
+  outputs = model.predict(inputs)
+  return outputs
