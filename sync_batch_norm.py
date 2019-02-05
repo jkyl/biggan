@@ -38,13 +38,15 @@ class SyncBatchNorm(Layer):
     if self.scale:
       self.gamma = self.add_weight(shape=shape,
                                    name='gamma',
-                                   initializer='ones')
+                                   initializer='ones',
+                                   use_resource=True)
     else:
       self.gamma = None
     if self.center:
       self.beta = self.add_weight(shape=shape,
                                   name='beta',
-                                  initializer='zeros')
+                                  initializer='zeros',
+                                  use_resource=True)
     else:
       self.beta = None
     self.built = True

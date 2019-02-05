@@ -69,7 +69,6 @@ def model_fn(features, labels, mode, params):
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
-  tf.enable_resource_variables()
   estimator = tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
@@ -78,7 +77,7 @@ def main(args):
         devices=data.get_gpus()),
       model_dir=args.model_dir))
   estimator.train(input_fn=lambda params: data.get_train_data(
-    args.data_file, args.train_batch_size), max_steps=1000000)
+    args.data_file, args.batch_size), max_steps=1000000)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(
@@ -87,7 +86,7 @@ if __name__ == '__main__':
     help='.npz file containing preprocessed image data')
   p.add_argument('model_dir', type=str,
     help='directory in which to save checkpoints and summaries')
-  p.add_argument('-bs', '--train_batch_size', type=int, default=64,
+  p.add_argument('-bs', '--batch_size', type=int, default=64,
     help='number of samples per minibatch update')
   p.add_argument('-is', '--image_size', type=int, default=256,
     help='size of generated and real images')
