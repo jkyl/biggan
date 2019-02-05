@@ -28,8 +28,7 @@ def model_fn(features, labels, mode, params):
     params['channels'])
 
   # sample z from max(N(0,1), 0)
-  z = tf.random_normal((
-    params['batch_size'],
+  z = tf.random_normal((features.shape[0],
     params['z_dim']), dtype=params['dtype'])
   z = tf.maximum(z, tf.zeros_like(z))
 
