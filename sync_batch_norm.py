@@ -58,8 +58,10 @@ class SyncBatchNorm(Layer):
     n = ctx.num_replicas_in_sync
     mean = K.mean(inputs, axis=0)
     mean_sq = K.mean(inputs**2, axis=0)
-    global_mean, global_mean_sq = ctx.all_reduce(
-      tf.distribute.ReduceOp.SUM, [mean / n, mean_sq / n])
+    global_mean = ctx.all_reduce(
+      tf.distribute.ReduceOp.SUM, mean / n)
+    global_mean_sq = ctx.all_reduce(
+      tf.distribute.ReduceOp.SUM, mean_sq / n)
     global_variance = global_mean_sq - global_mean**2
     return tf.nn.batch_normalization(
       inputs,
