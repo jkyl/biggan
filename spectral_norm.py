@@ -25,6 +25,7 @@ class ConvSN2D(Conv2D):
                                   initializer=self.kernel_initializer,
                                   name='kernel',
                                   dtype=K.floatx(),
+                                  use_resource=True,
                                   regularizer=self.kernel_regularizer,
                                   constraint=self.kernel_constraint)
     if self.use_bias:
@@ -32,6 +33,7 @@ class ConvSN2D(Conv2D):
                                   initializer=self.bias_initializer,
                                   name='bias',
                                   dtype=K.floatx(),
+                                  use_resource=True,
                                   regularizer=self.bias_regularizer,
                                   constraint=self.bias_constraint)
     else:
@@ -41,6 +43,7 @@ class ConvSN2D(Conv2D):
                              name='sn',
                              dtype=K.floatx(),
                              trainable=False,
+                             use_resource=True,
                              aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(ndim=self.rank + 2,
                                 axes={channel_axis: input_dim})
@@ -90,6 +93,7 @@ class DenseSN(Dense):
                                   initializer=self.kernel_initializer,
                                   name='kernel',
                                   dtype=K.floatx(),
+                                  use_resource=True,
                                   regularizer=self.kernel_regularizer,
                                   constraint=self.kernel_constraint)
     if self.use_bias:
@@ -97,6 +101,7 @@ class DenseSN(Dense):
                                   initializer=self.bias_initializer,
                                   name='bias',
                                   dtype=K.floatx(),
+                                  use_resource=True,
                                   regularizer=self.bias_regularizer,
                                   constraint=self.bias_constraint)
     else:
@@ -106,6 +111,7 @@ class DenseSN(Dense):
                              name='sn',
                              dtype=K.floatx(),
                              trainable=False,
+                             use_resource=True,
                              aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
     self.built = True

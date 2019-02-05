@@ -25,7 +25,6 @@ class SyncBatchNorm(Layer):
     self.epsilon = 1e-3
 
   def build(self, input_shape):
-    tf.enable_resource_variables()
     dim = input_shape[self.axis]
     if dim is None:
       raise ValueError('Axis ' + str(self.axis) + ' of '

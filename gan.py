@@ -67,7 +67,6 @@ def model_fn(features, labels, mode, params):
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
-  tf.enable_resource_variables()
   estimator = tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
