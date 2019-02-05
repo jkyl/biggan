@@ -7,6 +7,7 @@ import numpy as np
 
 from tensorflow.python.keras.layers import *
 from tensorflow.python.keras.models import *
+from sync_batch_norm import *
 from spectral_norm import *
 
 config = {
@@ -45,20 +46,19 @@ def g_block(x, dim, first=False, last=False):
     x = DenseSN(4 * 4 * dim, use_bias=False)(x)
     x = Reshape((4, 4, dim))(x)
   else:
-    eps = tf.keras.backend.epsilon()
     x0 = x
-    x = BatchNormalization(axis=-1, scale=False, epsilon=eps)(x)
+    x = SyncBatchNorm(scale=False)(x)
     x = Activation('relu')(x)
     x = UnPooling2D(2)(x)
     x = ConvSN2D(dim, 3, padding='same', use_bias=False)(x)
-    x = BatchNormalization(axis=-1, scale=False, epsilon=eps)(x)
+    x = SyncBatchNorm(scale=False)(x)
     x = Activation('relu')(x)
     x = ConvSN2D(dim, 3, padding='same', use_bias=False)(x)
     x0 = UnPooling2D(2)(x0)
     x0 = ConvSN2D(dim, 1, use_bias=False)(x0)
     x = Add()([x, x0])
   if last:
-    x = BatchNormalization(axis=-1, scale=False, epsilon=eps)(x)
+    x = SyncBatchNorm(scale=False)(x)
     x = Activation('relu')(x)
     x = ConvSN2D(3, 3, padding='same')(x)
     x = Activation('tanh')(x)
@@ -126,7 +126,10 @@ class Gain(Layer):
     super(Gain, self).__init__(**kwargs)
   def build(self, input_shape):
     self.gamma = self.add_weight(
-      name='gamma', shape=[], initializer='zeros', trainable=True)
+      name='gamma',
+      shape=[],
+      initializer='zeros',
+      trainable=True)
     super(Gain, self).build(input_shape)
   def call(self, x):
     return self.gamma * x

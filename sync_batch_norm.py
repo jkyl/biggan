@@ -58,19 +58,20 @@ class SyncBatchNorm(Layer):
       tf.distribute.ReduceOp.SUM, [mean / n, mean_sq / n])
     global_variance = global_mean_sq - global_mean**2
     return tf.nn.batch_normalization(
-      inputs, global_mean, global_variance,
-      offset=self.beta, scale=self.gamma, variance_epsilon=self.epsilon)
+      inputs,
+      global_mean,
+      global_variance,
+      self.beta,
+      self.gamma,
+      self.epsilon)
 
   def compute_output_shape(self, input_shape):
     return input_shape
 
   def get_config(self):
-    config = {
-        'axis': self.axis,
-        'momentum': self.momentum,
-        'epsilon': self.epsilon,
-        'center': self.center,
-        'scale': self.scale,
+    return {
+      'axis': self.axis,
+      'epsilon': self.epsilon,
+      'center': self.center,
+      'scale': self.scale,
     }
-    base_config = super(SyncBatchNorm, self).get_config()
-    return dict(list(base_config.items()) + list(config.items()))
