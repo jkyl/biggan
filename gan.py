@@ -69,7 +69,7 @@ def model_fn(features, labels, mode, params):
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
-
+  tf.enable_resource_variables()
   estimator = tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
@@ -77,7 +77,6 @@ def main(args):
       train_distribute=tf.distribute.MirroredStrategy(
         devices=data.get_gpus()),
       model_dir=args.model_dir))
-
   estimator.train(input_fn=lambda params: data.get_train_data(
     args.data_file, args.train_batch_size), max_steps=1000000)
 
