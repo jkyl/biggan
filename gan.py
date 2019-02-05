@@ -15,8 +15,6 @@ def model_fn(features, labels, mode, params):
   tf.keras.backend.set_learning_phase(True)
   tf.keras.backend.set_floatx(params['dtype'])
   features = tf.cast(features, params['dtype'])
-  if params['dtype'] == 'float16':
-    tf.keras.backend.set_epsilon(1e-4)
 
   # build the generator
   G = nets.resnet_generator(
@@ -48,8 +46,8 @@ def model_fn(features, labels, mode, params):
       + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
 
   # two-timescale update rule
-  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, tf.keras.backend.epsilon())
-  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, tf.keras.backend.epsilon())
+  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, 1e-4)
+  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, 1e-4)
 
   # following SAGAN, nD = 1
   G_step = tf.train.get_global_step()
@@ -69,6 +67,7 @@ def model_fn(features, labels, mode, params):
 
 def main(args):
   tf.logging.set_verbosity(tf.logging.INFO)
+  tf.enable_resource_variables()
   estimator = tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
