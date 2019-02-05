@@ -8,7 +8,7 @@ from tensorflow.python.keras.engine.base_layer import InputSpec
 from tensorflow.python.keras.engine.base_layer import Layer
 
 class SyncBatchNorm(Layer):
-  """Batch normalization layer"""
+  """Cross-replica batch normalization layer"""
   def __init__(self,
                center=True,
                scale=True,
@@ -52,6 +52,7 @@ class SyncBatchNorm(Layer):
     self.built = True
 
   def call(self, inputs):
+    print(inputs)
     ctx = tf.distribute.get_replica_context()
     n = ctx.num_replicas_in_sync
     mean, mean_sq = ctx.all_reduce(tf.distribute.ReduceOp.SUM, [

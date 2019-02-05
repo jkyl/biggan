@@ -92,8 +92,6 @@ if __name__ == '__main__':
     help='channel multiplier in G and D')
   p.add_argument('-zd', '--z_dim', type=int, default=128,
     help='dimensionality of latent vector')
-  p.add_argument('-nl', '--n_per_loop', type=int, default=100,
-    help='number of G updates per update loop')
   p.add_argument('-dt', '--dtype', choices=('float32', 'float16'),
     default='float16', help='training float precision')
   sys.exit(main(p.parse_args()))
