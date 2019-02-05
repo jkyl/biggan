@@ -43,6 +43,7 @@ class ConvSN2D(Conv2D):
                              name='sn',
                              dtype=K.floatx(),
                              trainable=False,
+                             aggregation=tf.VariableAggregation.MEAN
                              )
     self.input_spec = InputSpec(ndim=self.rank + 2,
                                 axes={channel_axis: input_dim})
@@ -93,14 +94,16 @@ class DenseSN(Dense):
                                   name='kernel',
                                   dtype=K.floatx(),
                                   regularizer=self.kernel_regularizer,
-                                  constraint=self.kernel_constraint)
+                                  constraint=self.kernel_constraint
+                                  )
     if self.use_bias:
       self.bias = self.add_weight(shape=(self.units,),
                                   initializer=self.bias_initializer,
                                   name='bias',
                                   dtype=K.floatx(),
                                   regularizer=self.bias_regularizer,
-                                  constraint=self.bias_constraint)
+                                  constraint=self.bias_constraint
+                                  )
     else:
       self.bias = None
     self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
@@ -108,6 +111,7 @@ class DenseSN(Dense):
                              name='sn',
                              dtype=K.floatx(),
                              trainable=False,
+                             aggregation=tf.VariableAggregation.MEAN
                              )
     self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
     self.built = True
