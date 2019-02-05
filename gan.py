@@ -29,7 +29,7 @@ def model_fn(features, labels, mode, params):
 
   # sample z from max(N(0,1), 0)
   z = tf.random_normal((
-    params['train_batch_size'],
+    params['batch_size'],
     params['z_dim']), dtype=params['dtype'])
   z = tf.maximum(z, tf.zeros_like(z))
 
