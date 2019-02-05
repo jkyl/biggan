@@ -44,6 +44,7 @@ class ConvSN2D(Conv2D):
                              dtype=K.floatx(),
                              trainable=False,
                              use_resource=True,
+                             synchronization=tf.VariableSynchronization.ON_WRITE,
                              aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(ndim=self.rank + 2,
                                 axes={channel_axis: input_dim})
@@ -112,6 +113,7 @@ class DenseSN(Dense):
                              dtype=K.floatx(),
                              trainable=False,
                              use_resource=True,
+                             synchronization=tf.VariableSynchronization.ON_WRITE,
                              aggregation=tf.VariableAggregation.MEAN)
     self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
     self.built = True
