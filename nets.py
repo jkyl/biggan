@@ -22,11 +22,11 @@ def resnet_generator(output_size, channels, z_dim):
   l = int(np.log2(output_size))
   for i, n in enumerate(config[output_size]):
     res = 2 ** (2 + i)
-    with tf.variable_scope('G_Block_'+str(i+1)):
-      x = g_block(x, n*channels, first=i==0, last=i==l-2)
+    #with tf.variable_scope('G_Block_'+str(i+1)):
+    x = g_block(x, n*channels, first=i==0, last=i==l-2)
     if res == 32:
-      with tf.variable_scope('G_Attention'):
-        x = attention(x)
+      #with tf.variable_scope('G_Attention'):
+      x = attention(x)
   return Model(inputs=z, outputs=x)
 
 def resnet_discriminator(input_size, channels):
@@ -34,11 +34,11 @@ def resnet_discriminator(input_size, channels):
   l = int(np.log2(input_size))
   for i, n in enumerate(reversed(config[input_size])):
     res = 2 ** (l - (i + 1))
-    with tf.variable_scope('D_Block_'+str(i+1)):
-      x = d_block(x, n*channels, first=i==0, last=i==l-2)
+    #with tf.variable_scope('D_Block_'+str(i+1)):
+    x = d_block(x, n*channels, first=i==0, last=i==l-2)
     if res == 32:
-      with tf.variable_scope('D_Attention'):
-        x = attention(x)
+      #with tf.variable_scope('D_Attention'):
+      x = attention(x)
   return Model(inputs=inp, outputs=x)
 
 def g_block(x, dim, first=False, last=False):
