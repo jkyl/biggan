@@ -11,7 +11,7 @@ class SyncBatchNorm(Layer):
   """Cross-replica batch normalization layer"""
   def __init__(self,
                center=True,
-               scale=True,
+               scale=False,
                trainable=True,
                name=None,
                **kwargs):
@@ -51,14 +51,14 @@ class SyncBatchNorm(Layer):
       self.beta = None
     self.built = True
 
-  def call(self, inputs):
+  def call(self, x):
     ctx = tf.distribute.get_replica_context()
     n = ctx.num_replicas_in_sync
     mean, mean_sq = ctx.all_reduce(tf.distribute.ReduceOp.SUM, [
-      K.mean(inputs, axis=0) / n, K.mean(inputs**2, axis=0) / n])
+      K.mean(x, axis=0) / n, K.mean(x**2, axis=0) / n])
     variance = mean_sq - mean ** 2
     return tf.nn.batch_normalization(
-      inputs,
+      x,
       mean,
       variance,
       self.beta,

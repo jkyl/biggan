@@ -16,16 +16,9 @@ def model_fn(features, labels, mode, params):
   tf.keras.backend.set_floatx(params['dtype'])
   features = tf.cast(features, params['dtype'])
 
-  # build the generator
-  G = nets.resnet_generator(
-    params['image_size'],
-    params['channels'],
-    params['z_dim'])
-
-  # build the discriminator
-  D = nets.resnet_discriminator(
-    params['image_size'],
-    params['channels'])
+  # build the networks
+  G = nets.Generator(params['channels'])
+  D = nets.Discriminator(params['channels'])
 
   # sample z from max(N(0,1), 0)
   z = tf.random_normal((
@@ -33,10 +26,8 @@ def model_fn(features, labels, mode, params):
     params['z_dim']), dtype=params['dtype'])
   z = tf.maximum(z, tf.zeros_like(z))
 
-  # generate image from z
+  # make predictions
   predictions = G(z)
-
-  # discriminate real and fake images
   logits_real = D(features)
   logits_fake = D(predictions)
 

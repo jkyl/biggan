@@ -2,135 +2,130 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import numpy as np
-
-from tensorflow.python.keras.layers import *
-from tensorflow.python.keras.models import *
+import tensorflow as tf
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import AveragePooling2D
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import Lambda
 from sn import ConvSN2D, DenseSN
 from bn import SyncBatchNorm
 
-config = {
-  512: [16, 16, 8, 8, 4, 2, 1, 1],
-  256: [16, 16, 8, 8, 4, 2, 1],
-  128: [16, 16, 8, 4, 2, 1],
-   64: [16, 8, 4, 2, 1]
-}
-
-def resnet_generator(output_size, channels, z_dim):
-  z = x = Input((z_dim,))
-  l = int(np.log2(output_size))
-  for i, n in enumerate(config[output_size]):
-    res = 2 ** (2 + i)
-    with tf.variable_scope('G_Block_'+str(i+1)):
-      x = g_block(x, n*channels, first=i==0, last=i==l-2)
-    if res == 32:
-      with tf.variable_scope('G_Attention'):
-        x = attention(x)
-  return Model(inputs=z, outputs=x)
-
-def resnet_discriminator(input_size, channels):
-  inp = x = Input((input_size, input_size, 3))
-  l = int(np.log2(input_size))
-  for i, n in enumerate(reversed(config[input_size])):
-    res = 2 ** (l - (i + 1))
-    with tf.variable_scope('D_Block_'+str(i+1)):
-      x = d_block(x, n*channels, first=i==0, last=i==l-2)
-    if res == 32:
-      with tf.variable_scope('D_Attention'):
-        x = attention(x)
-  return Model(inputs=inp, outputs=x)
-
-def g_block(x, dim, first=False, last=False):
-  if first:
-    x = DenseSN(4 * 4 * dim, use_bias=False)(x)
-    x = Reshape((4, 4, dim))(x)
-  else:
-    x0 = x
-    x = SyncBatchNorm(scale=False)(x)
-    x = Activation('relu')(x)
-    x = UnPooling2D(2)(x)
-    x = ConvSN2D(dim, 3, padding='same', use_bias=False)(x)
-    x = SyncBatchNorm(scale=False)(x)
-    x = Activation('relu')(x)
-    x = ConvSN2D(dim, 3, padding='same', use_bias=False)(x)
-    x0 = UnPooling2D(2)(x0)
-    x0 = ConvSN2D(dim, 1, use_bias=False)(x0)
-    x = Add()([x, x0])
-  if last:
-    x = SyncBatchNorm(scale=False)(x)
-    x = Activation('relu')(x)
-    x = ConvSN2D(3, 3, padding='same')(x)
-    x = Activation('tanh')(x)
+def _call(layers, x):
+  for f in layers:
+    x = f(x)
   return x
 
-def d_block(x, dim, first=False, last=False):
-  x0 = x
-  if first:
-    x = ConvSN2D(dim, 3, padding='same')(x)
-    x = Activation('relu')(x)
-    x = ConvSN2D(dim, 3, padding='same')(x)
-    x0 = AveragePooling2D()(x0)
-    x0 = ConvSN2D(dim, 1)(x0)
-    x = AveragePooling2D()(x)
-  elif not last:
-    x = Activation('relu')(x)
-    x = ConvSN2D(dim, 3, padding='same')(x)
-    x = Activation('relu')(x)
-    x = ConvSN2D(dim, 3, padding='same')(x)
-    x0 = ConvSN2D(dim, 1)(x0)
-    x0 = AveragePooling2D()(x0)
-    x = AveragePooling2D()(x)
-  x = Add()([x, x0])
-  if last:
-    x = Activation('relu')(x)
-    x = GlobalAveragePooling2D()(x)
-    x = DenseSN(1)(x)
-  return x
-
-def attention(x):
-  n, h, w, c = x.shape.as_list()
-  theta = ConvSN2D(c // 8, 1, use_bias=False)(x)
-  theta = Reshape((-1, c // 8))(theta)
-  phi = ConvSN2D(c // 8, 1, use_bias=False)(x)
-  phi = AveragePooling2D()(phi)
-  phi = Reshape((-1, c // 8))(phi)
-  f = Dot(2)([theta, phi])
-  f = Activation('softmax')(f)
-  g = ConvSN2D(c // 2, 1, use_bias=False)(x)
-  g = AveragePooling2D()(g)
-  g = Reshape((-1, c // 2))(g)
-  y = Dot([2, 1])([f, g])
-  y = Reshape((h, w, c // 2))(y)
-  y = ConvSN2D(c, 1, use_bias=False)(y)
-  y = Gain()(y)
-  y = Add()([x, y])
-  return y
-
-def UnPooling2D(factor, name=None):
+def UnPooling2D():
   def func(x):
-    import tensorflow as tf
     x = tf.transpose(x, [1, 2, 3, 0])
     x = tf.expand_dims(x, 0)
-    x = tf.tile(x, [factor**2, 1, 1, 1, 1])
-    x = tf.batch_to_space_nd(x, [factor, factor], [[0, 0], [0, 0]])
+    x = tf.tile(x, [4, 1, 1, 1, 1])
+    x = tf.batch_to_space_nd(x, [2, 2], [[0, 0], [0, 0]])
     x = tf.transpose(x[0], [3, 0, 1, 2])
     return x
   def output_shape(input_shape):
     n, h, w, c = input_shape
-    return (n, h * factor, w * factor, c)
-  return Lambda(func, output_shape=output_shape, name=name)
+    return (n, h * 2, w * 2, c)
+  return Lambda(func, output_shape=output_shape)
 
-class Gain(Layer):
-  def __init__(self, **kwargs):
-    super(Gain, self).__init__(**kwargs)
-  def build(self, input_shape):
-    self.gamma = self.add_weight(
-      name='gamma',
-      shape=[],
-      initializer='zeros',
-      trainable=True)
-    super(Gain, self).build(input_shape)
+class G_Block(object):
+  def __init__(self, dim):
+    self._layers = (
+      SyncBatchNorm(),
+      Activation('relu'),
+      UnPooling2D(),
+      ConvSN2D(dim, 3, padding='same', use_bias=False),
+      SyncBatchNorm(),
+      Activation('relu'),
+      ConvSN2D(dim, 3, padding='same', use_bias=False)
+    )
+    self.residual = (
+      UnPooling2D(),
+      ConvSN2D(dim, 1, use_bias=False)
+    )
+  def __call__(self, x):
+    return _call(self._layers, x) + _call(self.residual, x)
+
+class D_Block(object):
+  def __init__(self, dim, down=True):
+    self._layers = (
+      Activation('relu'),
+      ConvSN2D(dim, 3, padding='same'),
+      Activation('relu'),
+      ConvSN2D(dim, 3, padding='same'),
+      AveragePooling2D() if down else lambda x: x,
+    )
+    self._residual = (
+      ConvSN2D(dim, 1),
+      AveragePooling2D() if down else lambda x: x,
+    )
+  def __call__(self, x):
+    return _call(self._layers, x) + _call(self._residual, x)
+
+class Attention(object):
+  def __init__(self, dim):
+    self._f = (
+      ConvSN2D(dim // 8, 1, use_bias=False),
+      Reshape((-1, dim // 8)),
+    )
+    self._g = (
+      ConvSN2D(dim // 8, 1, use_bias=False),
+      AveragePooling2D(),
+      Reshape((-1, dim // 8)),
+    )
+    self._h = (
+      ConvSN2D(dim // 2, 1, use_bias=False),
+      AveragePooling2D(),
+      Reshape((-1, dim // 2)),
+    )
+    self._j = (
+      ConvSN2D(dim, 1, use_bias=False),
+    )
+  def __call__(self, x):
+    b, h, w, c = x.shape.as_list()
+    attn = tf.nn.softmax(tf.matmul(
+      _call(self._f, x), _call(self._g, x), transpose_b=True))
+    y = tf.matmul(attn, _call(self._h, x))
+    y = tf.reshape(y, (b, h, w, c // 2))
+    return _call(self._j, y) + x
+
+class Generator(tf.keras.Model):
+  def __init__(self, ch):
+    super(Generator, self).__init__()
+    self._layers = (
+      DenseSN(4 * 4 * 16 * ch, use_bias=False),
+      Reshape((4, 4, 16 * ch)),
+      G_Block(16 * ch),
+      G_Block(8 * ch),
+      G_Block(8 * ch),
+      G_Block(4 * ch),
+      Attention(4 * ch),
+      G_Block(2 * ch),
+      G_Block(1 * ch),
+      SyncBatchNorm(),
+      Activation('relu'),
+      ConvSN2D(3, 3, padding='same'),
+      Activation('tanh'),
+    )
+  def _call(self, x):
+    return _call(self._layers, x)
+
+class Discriminator(tf.keras.Model):
+  def __init__(self, ch):
+    super(Discriminator, self).__init__()
+    self._layers = (
+      D_Block(1 * ch),
+      D_Block(2 * ch),
+      Attention(4 * ch),
+      D_Block(4 * ch),
+      D_Block(8 * ch),
+      D_Block(8 * ch),
+      D_Block(16 * ch),
+      D_Block(16 * ch, down=False),
+      Activation('relu'),
+      GlobalAveragePooling2D(),
+      DenseSN(1)
+    )
   def call(self, x):
-    return self.gamma * x
-  def compute_output_shape(self, input_shape):
-    return input_shape
+    return _call(self._layers, x)
