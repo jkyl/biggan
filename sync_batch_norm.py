@@ -52,7 +52,6 @@ class SyncBatchNorm(Layer):
     self.built = True
 
   def call(self, inputs):
-    print(inputs)
     ctx = tf.distribute.get_replica_context()
     n = ctx.num_replicas_in_sync
     mean, mean_sq = ctx.all_reduce(tf.distribute.ReduceOp.SUM, [
