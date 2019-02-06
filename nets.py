@@ -6,8 +6,8 @@ import numpy as np
 
 from tensorflow.python.keras.layers import *
 from tensorflow.python.keras.models import *
-from sync_batch_norm import *
-from spectral_norm import *
+from sn import ConvSN2D, DenseSN
+from bn import SyncBatchNorm
 
 config = {
   512: [16, 16, 8, 8, 4, 2, 1, 1],
