@@ -123,7 +123,7 @@ class Generator(tf.keras.Model):
       ConvSN2D(3, 3, padding='same'),
       Activation('tanh'),
     )
-  def _call(self, x):
+  def call(self, x):
     return _call(self._layers, x)
 
 class Discriminator(tf.keras.Model):
@@ -132,7 +132,7 @@ class Discriminator(tf.keras.Model):
     self._layers = (
       D_Block_input(1 * ch),
       D_Block(2 * ch),
-      Attention(4 * ch),
+      Attention(2 * ch),
       D_Block(4 * ch),
       D_Block(8 * ch),
       D_Block(8 * ch),
