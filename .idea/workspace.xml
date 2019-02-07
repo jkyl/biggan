@@ -2,8 +2,7 @@
 <project version="4">
   <component name="ChangeListManager">
     <list default="true" id="8508b104-781c-4ca3-bdb6-6edd80dd322c" name="Default" comment="">
-      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/nets.py" beforeDir="false" afterPath="$PROJECT_DIR$/nets.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/gan.py" beforeDir="false" afterPath="$PROJECT_DIR$/gan.py" afterDir="false" />
     </list>
     <option name="EXCLUDED_CONVERTED_TO_IGNORED" value="true" />
     <option name="TRACKING_ENABLED" value="true" />
@@ -14,11 +13,11 @@
   </component>
   <component name="FileEditorManager">
     <leaf SIDE_TABS_SIZE_LIMIT_KEY="300">
-      <file leaf-file-name="gan.py" pinned="false" current-in-tab="false">
+      <file leaf-file-name="gan.py" pinned="false" current-in-tab="true">
         <entry file="file://$PROJECT_DIR$/gan.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="667">
-              <caret line="44" column="22" lean-forward="true" selection-start-line="44" selection-start-column="22" selection-end-line="44" selection-end-column="22" />
+            <state relative-caret-position="480">
+              <caret line="33" column="17" selection-start-line="33" selection-start-column="17" selection-end-line="33" selection-end-column="17" />
               <folding>
                 <element signature="e#0#38#0" expanded="true" />
               </folding>
@@ -26,11 +25,11 @@
           </provider>
         </entry>
       </file>
-      <file leaf-file-name="nets.py" pinned="false" current-in-tab="true">
+      <file leaf-file-name="nets.py" pinned="false" current-in-tab="false">
         <entry file="file://$PROJECT_DIR$/nets.py">
           <provider selected="true" editor-type-id="text-editor">
-            <state relative-caret-position="1598">
-              <caret line="105" column="12" selection-start-line="105" selection-start-column="12" selection-end-line="105" selection-end-column="12" />
+            <state relative-caret-position="-1172">
+              <caret line="30" lean-forward="true" selection-start-line="30" selection-end-line="30" />
             </state>
           </provider>
         </entry>
@@ -125,10 +124,10 @@
         <option value="$PROJECT_DIR$/spectral_norm.py" />
         <option value="$PROJECT_DIR$/data.py" />
         <option value="$PROJECT_DIR$/sync_batch_norm.py" />
-        <option value="$PROJECT_DIR$/gan.py" />
         <option value="$PROJECT_DIR$/sn.py" />
         <option value="$PROJECT_DIR$/bn.py" />
         <option value="$PROJECT_DIR$/nets.py" />
+        <option value="$PROJECT_DIR$/gan.py" />
       </list>
     </option>
   </component>
@@ -412,16 +411,6 @@
         </state>
       </provider>
     </entry>
-    <entry file="file://$PROJECT_DIR$/gan.py">
-      <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="667">
-          <caret line="44" column="22" lean-forward="true" selection-start-line="44" selection-start-column="22" selection-end-line="44" selection-end-column="22" />
-          <folding>
-            <element signature="e#0#38#0" expanded="true" />
-          </folding>
-        </state>
-      </provider>
-    </entry>
     <entry file="file://$PROJECT_DIR$/sn.py">
       <provider selected="true" editor-type-id="text-editor">
         <state relative-caret-position="153">
@@ -438,8 +427,18 @@
     </entry>
     <entry file="file://$PROJECT_DIR$/nets.py">
       <provider selected="true" editor-type-id="text-editor">
-        <state relative-caret-position="1598">
-          <caret line="105" column="12" selection-start-line="105" selection-start-column="12" selection-end-line="105" selection-end-column="12" />
+        <state relative-caret-position="-1172">
+          <caret line="30" lean-forward="true" selection-start-line="30" selection-end-line="30" />
+        </state>
+      </provider>
+    </entry>
+    <entry file="file://$PROJECT_DIR$/gan.py">
+      <provider selected="true" editor-type-id="text-editor">
+        <state relative-caret-position="480">
+          <caret line="33" column="17" selection-start-line="33" selection-start-column="17" selection-end-line="33" selection-end-column="17" />
+          <folding>
+            <element signature="e#0#38#0" expanded="true" />
+          </folding>
         </state>
       </provider>
     </entry>
