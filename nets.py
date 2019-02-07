@@ -29,8 +29,9 @@ def UnPooling2D():
     return (n, h * 2, w * 2, c)
   return Lambda(func, output_shape=output_shape)
 
-class G_Block(object):
+class G_Block(tf.keras.Model):
   def __init__(self, dim):
+    super(G_Block, self).__init__()
     self._layers = (
       SyncBatchNorm(),
       Activation('relu'),
@@ -44,11 +45,12 @@ class G_Block(object):
       UnPooling2D(),
       ConvSN2D(dim, 1, use_bias=False)
     )
-  def __call__(self, x):
+  def call(self, x):
     return _call(self._layers, x) + _call(self._residual, x)
 
-class D_Block(object):
+class D_Block(tf.keras.Model):
   def __init__(self, dim, down=True):
+    super(D_Block, self).__init__()
     self._layers = (
       Activation('relu'),
       ConvSN2D(dim, 3, padding='same'),
@@ -60,11 +62,12 @@ class D_Block(object):
       ConvSN2D(dim, 1),
       AveragePooling2D() if down else lambda x: x,
     )
-  def __call__(self, x):
+  def call(self, x):
     return _call(self._layers, x) + _call(self._residual, x)
 
-class D_Block_input(object):
+class D_Block_input(tf.keras.Model):
   def __init__(self, dim):
+    super(D_Block_input, self).__init__()
     self._layers = (
       ConvSN2D(dim, 3, padding='same'),
       Activation('relu'),
@@ -75,11 +78,12 @@ class D_Block_input(object):
       AveragePooling2D(),
       ConvSN2D(dim, 1),
     )
-  def __call__(self, x):
+  def call(self, x):
     return _call(self._layers, x) + _call(self._residual, x)
 
-class Attention(object):
+class Attention(tf.keras.Model):
   def __init__(self, dim):
+    super(Attention, self).__init__()
     self._f = (
       ConvSN2D(dim // 8, 1, use_bias=False),
       Reshape((-1, dim // 8)),
@@ -97,7 +101,7 @@ class Attention(object):
     self._j = (
       ConvSN2D(dim, 1, use_bias=False),
     )
-  def __call__(self, x):
+  def call(self, x):
     b, h, w, c = x.shape.as_list()
     attn = tf.nn.softmax(tf.matmul(
       _call(self._f, x), _call(self._g, x), transpose_b=True))
