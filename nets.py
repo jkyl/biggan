@@ -144,7 +144,7 @@ class Discriminator(tf.keras.Model):
       D_Block(16 * ch, down=False),
       Activation('relu'),
       GlobalAveragePooling2D(),
-      DenseSN(1)
+      DenseSN(1),
     )
   def call(self, x):
     return _call(self._layers, x)

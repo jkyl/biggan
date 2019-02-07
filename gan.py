@@ -31,8 +31,8 @@ def model_fn(features, labels, mode, params):
   logits_real = D(features)
   logits_fake = D(predictions)
 
-  print(G.layers)
-  print(G.trainable_weights)
+  print(D.layers)
+  print(D.trainable_weights)
 
   # hinge loss function
   L_G = -tf.reduce_mean(logits_fake)
