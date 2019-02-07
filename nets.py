@@ -40,12 +40,12 @@ class G_Block(object):
       Activation('relu'),
       ConvSN2D(dim, 3, padding='same', use_bias=False)
     )
-    self.residual = (
+    self._residual = (
       UnPooling2D(),
       ConvSN2D(dim, 1, use_bias=False)
     )
   def __call__(self, x):
-    return _call(self._layers, x) + _call(self.residual, x)
+    return _call(self._layers, x) + _call(self._residual, x)
 
 class D_Block(object):
   def __init__(self, dim, down=True):
@@ -59,6 +59,21 @@ class D_Block(object):
     self._residual = (
       ConvSN2D(dim, 1),
       AveragePooling2D() if down else lambda x: x,
+    )
+  def __call__(self, x):
+    return _call(self._layers, x) + _call(self._residual, x)
+
+class D_Block_input(object):
+  def __init__(self, dim):
+    self._layers = (
+      ConvSN2D(dim, 3, padding='same'),
+      Activation('relu'),
+      ConvSN2D(dim, 3, padding='same'),
+      AveragePooling2D(),
+    )
+    self._residual = (
+      AveragePooling2D(),
+      ConvSN2D(dim, 1),
     )
   def __call__(self, x):
     return _call(self._layers, x) + _call(self._residual, x)
@@ -115,7 +130,7 @@ class Discriminator(tf.keras.Model):
   def __init__(self, ch):
     super(Discriminator, self).__init__()
     self._layers = (
-      D_Block(1 * ch),
+      D_Block_input(1 * ch),
       D_Block(2 * ch),
       Attention(4 * ch),
       D_Block(4 * ch),
