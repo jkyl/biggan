@@ -9,9 +9,9 @@ from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import Add
-from sn import ConvSN2D, DenseSN
-from bn import SyncBatchNorm
-from up import UnPooling2D
+from .sn import ConvSN2D, DenseSN
+from .bn import SyncBatchNorm
+from .up import UnPooling2D
 
 class GBlock(Model):
   def __init__(self, dim):
