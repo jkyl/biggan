@@ -9,7 +9,7 @@ from tensorflow.keras.layers import *
 from .custom_layers import *
 
 def GBlock(x, dim):
-  with tf.variable_scope(name=None, default_name='GBlock'):
+  with tf.variable_scope(None, default_name='GBlock'):
     x0 = x
     x = SyncBatchNorm()(x)
     x = Activation('relu')(x)
@@ -24,7 +24,7 @@ def GBlock(x, dim):
     return Add()([x, x0])
 
 def DBlock(x, dim, first=False, down=True):
-  with tf.variable_scope(name=None, default_name='DBlock'):
+  with tf.variable_scope(None, default_name='DBlock'):
     x0 = x
     if first:
       x = Activation('relu')(x)
@@ -39,7 +39,7 @@ def DBlock(x, dim, first=False, down=True):
     return Add()([x, x0])
 
 def Attention(x):
-  with tf.variable_scope(name=None, default_name='Attention'):
+  with tf.variable_scope(None, default_name='Attention'):
     _b, _h, _w, _c = K.int_shape(x)
     f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
     f = Reshape((_h * _w, _c // 8))(f)
@@ -56,7 +56,7 @@ def Attention(x):
     return ConvSN2D(_c, 1, use_bias=False)(y)
 
 def Generator(ch):
-  with tf.variable_scope(name=None, default_name='Generator'):
+  with tf.variable_scope(None, default_name='Generator'):
     z = Input((128,))
     x = DenseSN(4 * 4 * 16 * ch, use_bias=False)(z)
     x = Reshape((4, 4, 16 * ch))(x)
@@ -74,7 +74,7 @@ def Generator(ch):
     return Model(inputs=z, outputs=x)
 
 def Discriminator(ch):
-  with tf.variable_scope(name=None, default_name='Discriminator'):
+  with tf.variable_scope(None, default_name='Discriminator'):
     x = inp = Input((256, 256, 3))
     x = DBlock(x, 1 * ch, first=True)
     x = DBlock(x, 2 * ch)
