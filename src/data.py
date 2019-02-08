@@ -20,14 +20,14 @@ def preprocess_img(img):
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
-def get_train_data(npz_file, batch_size, n_threads=8):
+def get_train_data(npy_file, batch_size, n_threads=8):
   n_gpus = len(get_gpus())
   if batch_size % n_gpus != 0:
     raise ValueError(
       'Batch size ({}) is not evenly divisible by number of GPUs ({})'
       .format(batch_size, n_gpus))
   batch_size //= n_gpus
-  data = np.load(npz_file, mmap_mode='r')['data']
+  data = np.load(npy_file, mmap_mode='r')
   n, h, w, c = data.shape
   def gen():
     while 1:
@@ -66,14 +66,14 @@ def main(args):
         i += 1
       except:
         continue
-  np.savez(args.output_npz, data=arr[:i])
+  np.savez(args.output_npy, data=arr[:i])
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   p.add_argument('data_dir', type=str,
     help='directory containing training PNGs and/or JPGs')
-  p.add_argument('output_npz', type=str,
+  p.add_argument('output_npy', type=str,
     help='.npz file in which to save preprocessed images')
   p.add_argument('-is', '--image_size', type=int, default=128,
     help='size of downsampled images')
