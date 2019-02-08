@@ -95,7 +95,7 @@ class Discriminator(Model):
   def call(self, x):
     x = DBlock(1 * self.ch, first=True)(x)
     x = DBlock(2 * self.ch)(x)
-    x = Attention(2 * self.ch)(x)
+    x = Attention()(x)
     x = DBlock(4 * self.ch)(x)
     x = DBlock(8 * self.ch)(x)
     x = DBlock(8 * self.ch)(x)
