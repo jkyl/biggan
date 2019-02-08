@@ -2,155 +2,105 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
-import tensorflow as tf
+from tensorflow.keras import Model
+from tensorflow.keras import backend as K
 from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import Activation
 from tensorflow.keras.layers import Reshape
-from tensorflow.keras.layers import Lambda
-from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Add
 from sn import ConvSN2D, DenseSN
 from bn import SyncBatchNorm
 from up import UnPooling2D
 
-def _call(layers, x):
-  for f in layers:
-    x = f(x)
-  return x
-
-class GBlock(tf.keras.Model):
+class GBlock(Model):
   def __init__(self, dim):
     super(GBlock, self).__init__()
-    # main
-    self.norm_1 = SyncBatchNorm()
-    self.relu_1 = Activation('relu')
-    self.unpool = UnPooling2D()
-    self.conv_1 = ConvSN2D(dim, 3, padding='same', use_bias=False)
-    self.norm_2 = SyncBatchNorm()
-    self.relu_2 = Activation('relu')
-    self.conv_2 = ConvSN2D(dim, 3, padding='same', use_bias=False)
-    # residual
-    self.res_project = ConvSN2D(dim, 1, use_bias=False)
-    self.res_unpool = UnPooling2D()
+    self.dim = dim
   def call(self, x):
-    return _call([self.res_project, self.res_unpool], x) \
-         + _call([self.norm_1, self.relu_1, self.conv_1, self.unpool,
-                  self.norm_2, self.relu_2, self.conv_2], x)
+    x0 = x
+    x = SyncBatchNorm()(x)
+    x = Activation('relu')(x)
+    x = UnPooling2D()(x)
+    x = ConvSN2D(self.dim, 3, padding='same', use_bias=False)(x)
+    x = SyncBatchNorm()(x)
+    x = Activation('relu')(x)
+    x = ConvSN2D(self.dim, 3, padding='same', use_bias=False)(x)
+    if self.dim != K.int_shape(x0)[-1]:
+      x0 = ConvSN2D(self.dim, 1, use_bias=False)(x0)
+    x0 = UnPooling2D()(x0)
+    return Add()([x, x0])
 
-class DBlock(tf.keras.Model):
-  def __init__(self, dim, down=True):
+class DBlock(Model):
+  def __init__(self, dim, down=True, first=False):
     super(DBlock, self).__init__()
-    # main
-    self.relu_1 = Activation('relu')
-    self.conv_1 = ConvSN2D(dim, 3, padding='same')
-    self.relu_2 = Activation('relu')
-    self.conv_2 = ConvSN2D(dim, 3, padding='same')
-    self.pool = AveragePooling2D() if down else lambda x: x
-    # residual
-    self.res_pool = AveragePooling2D() if down else lambda x: x
-    self.res_project = ConvSN2D(dim, 1)
+    self.dim = dim
+    self.down = down
+    self.first = first
   def call(self, x):
-    return _call([self.res_pool, self.res_project], x) \
-         + _call([self.relu_1, self.conv_1,
-                  self.relu_2, self.conv_2, self.pool], x)
+    x0 = x
+    if self.first:
+      x = Activation('relu')(x)
+    x = ConvSN2D(self.dim, 3, padding='same')(x)
+    x = Activation('relu')(x)
+    x = ConvSN2D(self.dim, 3, padding='same')(x)
+    if self.down:
+      x = AveragePooling2D()(x)
+      x0 = AveragePooling2D()(x0)
+    if self.dim != K.int_shape(x0)[-1]:
+      x0 = ConvSN2D(self.dim, 1, use_bias=False)(x0)
+    return Add()([x, x0])
 
-class DBlockInput(tf.keras.Model):
-  def __init__(self, dim):
-    super(DBlockInput, self).__init__()
-    # main
-    self.conv_1 = ConvSN2D(dim, 3, padding='same')
-    self.relu_1 = Activation('relu')
-    self.conv_2 = ConvSN2D(dim, 3, padding='same')
-    self.pool = AveragePooling2D()
-    # residual
-    self.res_pool = AveragePooling2D()
-    self.res_project = ConvSN2D(dim, 1)
-  def call(self, x):
-    return _call([self.res_pool, self.res_project], x) \
-         + _call([self.conv_1, self.relu_1,
-                  self.conv_2, self.pool], x)
-
-class Attention(tf.keras.Model):
-  def __init__(self, dim):
+class Attention(Model):
+  def __init__(self):
     super(Attention, self).__init__()
-    self.project_f = ConvSN2D(dim // 8, 1, use_bias=False)
-    self.pool_g = AveragePooling2D()
-    self.project_g = ConvSN2D(dim // 8, 1, use_bias=False)
-    self.pool_h = AveragePooling2D()
-    self.project_h = ConvSN2D(dim // 2, 1, use_bias=False)
-    self.project_out = ConvSN2D(dim, 1, use_bias=False)
-
   def call(self, x):
     _b, _h, _w, _c = K.int_shape(x)
-    f = _call([self.project_f], x)
-    f = tf.reshape(f, (-1, _h * _w, _c // 8))
-    g = _call([self.pool_g, self.project_g], x)
-    g = tf.reshape(g, (-1, _h * _w // 4, _c // 8))
-    h = _call([self.pool_h, self.project_h], x)
-    h = tf.reshape(h, (-1, _h * _w // 4, _c // 2))
-    attn = tf.nn.softmax(tf.matmul(f, g, transpose_b=True))
-    y = tf.matmul(attn, h)
-    y = tf.reshape(y, (-1, _h, _w, _c // 2))
-    return _call([self.project_out], y) + x
+    f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
+    f = Reshape((_h * _w, _c // 8))(f)
+    g = AveragePooling2D()(x)
+    g = ConvSN2D(_c // 8, 1, use_bias=False)(g)
+    g = Reshape((_h * _w // 4, _c // 8))(g)
+    h = AveragePooling2D()(x)
+    h = ConvSN2D(_c // 2, 1, use_bias=False)(h)
+    h = Reshape((_h * _w // 4, _c // 2))(h)
+    attn = K.softmax(K.batch_dot(f, g, axes=-1))
+    y = K.batch_dot(attn, h, axes=(2, 1))
+    y = Reshape((_h, _w, _c // 2))(y)
+    return ConvSN2D(_c, 1, use_bias=False)(y)
 
-class Generator(tf.keras.Model):
+class Generator(Model):
   def __init__(self, ch):
     super(Generator, self).__init__()
-    self.dense = DenseSN(4 * 4 * 16 * ch, use_bias=False)
-    self.reshape = Reshape((4, 4, 16 * ch))
-    self.block_1 = GBlock(16 * ch)
-    self.block_2 = GBlock(8 * ch)
-    self.block_3 = GBlock(8 * ch)
-    self.block_4 = GBlock(4 * ch)
-    self.attn = Attention(4 * ch)
-    self.block_5 = GBlock(2 * ch)
-    self.block_6 = GBlock(1 * ch)
-    self.norm = SyncBatchNorm()
-    self.relu = Activation('relu')
-    self.conv = ConvSN2D(3, 3, padding='same')
-    self.tanh = Activation('tanh')
+    self.ch = ch
   def call(self, x):
-    return _call([
-      self.dense,
-      self.reshape,
-      self.block_1,
-      self.block_2,
-      self.block_3,
-      self.block_4,
-      self.attn,
-      self.block_5,
-      self.block_6,
-      self.norm,
-      self.relu,
-      self.conv,
-      self.tanh,
-    ], x)
+    x = DenseSN(4 * 4 * 16 * self.ch, use_bias=False)(x)
+    x = Reshape((4, 4, 16 * self.ch))(x)
+    x = GBlock(16 * self.ch)(x)
+    x = GBlock(8 * self.ch)(x)
+    x = GBlock(8 * self.ch)(x)
+    x = GBlock(4 * self.ch)(x)
+    x = Attention()(x)
+    x = GBlock(2 * self.ch)(x)
+    x = GBlock(1 * self.ch)(x)
+    x = SyncBatchNorm()(x)
+    x = Activation('relu')(x)
+    x = ConvSN2D(3, 3, padding='same')(x)
+    return Activation('tanh')(x)
 
-class Discriminator(tf.keras.Model):
+class Discriminator(Model):
   def __init__(self, ch):
     super(Discriminator, self).__init__()
-    self.block_1 = DBlockInput(1 * ch)
-    self.block_2 = DBlock(2 * ch)
-    self.attn = Attention(2 * ch)
-    self.block_3 = DBlock(4 * ch)
-    self.block_4 = DBlock(8 * ch)
-    self.block_5 = DBlock(8 * ch)
-    self.block_6 = DBlock(16 * ch)
-    self.block_7 = DBlock(16 * ch, down=False)
-    self.relu = Activation('relu')
-    self.pool = GlobalAveragePooling2D()
-    self.dense = DenseSN(1)
+    self.ch = ch
   def call(self, x):
-    return _call([
-      self.block_1,
-      self.block_2,
-      self.attn,
-      self.block_3,
-      self.block_4,
-      self.block_5,
-      self.block_6,
-      self.block_7,
-      self.relu,
-      self.pool,
-      self.dense,
-    ], x)
+    x = DBlock(1 * self.ch, first=True)(x)
+    x = DBlock(2 * self.ch)(x)
+    x = Attention(2 * self.ch)(x)
+    x = DBlock(4 * self.ch)(x)
+    x = DBlock(8 * self.ch)(x)
+    x = DBlock(8 * self.ch)(x)
+    x = DBlock(16 * self.ch)(x)
+    x = DBlock(16 * self.ch, down=False)(x)
+    x = Activation('relu')(x)
+    x = GlobalAveragePooling2D()(x)
+    return DenseSN(1)(x)
