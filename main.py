@@ -23,18 +23,13 @@ def model_fn(features, labels, mode, params):
   # sample z from max(N(0,1), 0)
   z = tf.random_normal((
     params['batch_size'] // len(data.get_gpus()),
-    params['z_dim']), dtype=params['dtype'])
+    128), dtype=params['dtype'])
   z = tf.maximum(z, tf.zeros_like(z))
 
   # make predictions
   predictions = G(z)
   logits_real = D(features)
   logits_fake = D(predictions)
-
-  for l in G.layers:
-    print(l)
-    print(l.trainable_weights)
-  assert 0
 
   # hinge loss function
   L_G = -tf.reduce_mean(logits_fake)
@@ -84,8 +79,6 @@ if __name__ == '__main__':
     help='number of samples per minibatch update')
   p.add_argument('-ch', '--channels', type=int, default=16,
     help='channel multiplier in G and D')
-  p.add_argument('-zd', '--z_dim', type=int, default=128,
-    help='dimensionality of latent vector')
   p.add_argument('-dt', '--dtype', choices=('float32', 'float16'),
     default='float16', help='training float precision')
   sys.exit(main(p.parse_args()))
