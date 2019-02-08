@@ -40,7 +40,7 @@ class ConvSN2D(Conv2D):
                              initializer=initializers.RandomNormal(0, 1),
                              name='sn',
                              trainable=False,
-                             aggregation=tf.VariableAggregation.MEAN
+                             aggregation=tf.VariableAggregation.ONLY_FIRST_TOWER
                              )
     self.input_spec = InputSpec(ndim=self.rank + 2,
                                 axes={channel_axis: input_dim})
