@@ -4,7 +4,6 @@ from __future__ import division
 
 import tensorflow as tf
 import argparse
-import sys
 
 from src import nets, data
 
@@ -81,4 +80,4 @@ if __name__ == '__main__':
     help='channel multiplier in G and D')
   p.add_argument('-dt', '--dtype', choices=('float32', 'float16'),
     default='float16', help='training float precision')
-  sys.exit(main(p.parse_args()))
+  main(p.parse_args())
