@@ -34,6 +34,7 @@ def model_fn(features, labels, mode, params):
   for l in G.layers:
     print(l)
     print(l.trainable_weights)
+  assert 0
 
   # hinge loss function
   L_G = -tf.reduce_mean(logits_fake)
