@@ -27,10 +27,8 @@ def get_train_data(npz_file, batch_size, n_threads=8):
       'Batch size ({}) is not evenly divisible by number of GPUs ({})'
       .format(batch_size, n_gpus))
   batch_size //= n_gpus
-  print('loading dataset into memory...')
-  data = np.load(npz_file)['data']
+  data = np.load(npz_file, mmap_mode='r')['data']
   n, h, w, c = data.shape
-  print('done!')
   def gen():
     while 1:
       yield data[np.random.randint(n, size=batch_size)]
