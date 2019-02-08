@@ -64,7 +64,7 @@ class Attention(Model):
     h = AveragePooling2D()(x)
     h = ConvSN2D(_c // 2, 1, use_bias=False)(h)
     h = Reshape((_h * _w // 4, _c // 2))(h)
-    attn = K.softmax(K.batch_dot(f, g, axes=-1))
+    attn = K.softmax(K.batch_dot(f, g, axes=(2, 2)))
     y = K.batch_dot(attn, h, axes=(2, 1))
     y = Reshape((_h, _w, _c // 2))(y)
     return ConvSN2D(_c, 1, use_bias=False)(y)
