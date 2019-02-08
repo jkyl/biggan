@@ -31,9 +31,6 @@ def model_fn(features, labels, mode, params):
   logits_real = D(features)
   logits_fake = D(predictions)
 
-  for l in D.layers:
-    print(l, l.trainable_weights)
-
   # hinge loss function
   L_G = -tf.reduce_mean(logits_fake)
   L_D = tf.reduce_mean(tf.nn.relu(1. - logits_real))\
@@ -55,7 +52,7 @@ def model_fn(features, labels, mode, params):
   tf.summary.scalar('L_G', L_G)
   tf.summary.scalar('L_D', L_D)
 
-  # return an TPUEstimatorSpec
+  # return an EstimatorSpec
   return tf.estimator.EstimatorSpec(
     mode=mode, loss=L_D, train_op=train_op)
 
@@ -80,8 +77,6 @@ if __name__ == '__main__':
     help='directory in which to save checkpoints and summaries')
   p.add_argument('-bs', '--batch_size', type=int, default=64,
     help='number of samples per minibatch update')
-  p.add_argument('-is', '--image_size', type=int, default=256,
-    help='size of generated and real images')
   p.add_argument('-ch', '--channels', type=int, default=16,
     help='channel multiplier in G and D')
   p.add_argument('-zd', '--z_dim', type=int, default=128,
