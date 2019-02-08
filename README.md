@@ -5,4 +5,4 @@ a big old gan
 ```$ pipenv install && pipenv shell```
 
 ## Usage
-```$ python main.py data.npz ./output``` 
+```$ python main.py data.npy ./output``` 
