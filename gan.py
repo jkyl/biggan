@@ -4,9 +4,9 @@ from __future__ import division
 
 import tensorflow as tf
 import argparse
-import data
-import nets
 import sys
+
+from src import nets, data
 
 def model_fn(features, labels, mode, params):
   del labels # unused
