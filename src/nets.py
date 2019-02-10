@@ -84,5 +84,5 @@ def Discriminator(ch):
   x = DBlock(x, 16 * ch, down=False)
   x = Activation('relu')(x)
   x = GlobalAveragePooling2D()(x)
-  logits = DenseSN(1)(x)
-  return Model(inputs=inp, outputs=logits, name='Discriminator')
+  x = DenseSN(1)(x)
+  return Model(inputs=inp, outputs=x, name='Discriminator')
