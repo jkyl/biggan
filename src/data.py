@@ -20,14 +20,14 @@ def preprocess_img(img):
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
-def get_train_data(npy_file, batch_size, n_threads=8):
+def get_train_data(npy_file, batch_size, n_threads=8, cache=True):
   n_gpus = len(get_gpus())
   if batch_size % n_gpus != 0:
     raise ValueError(
       'Batch size ({}) is not evenly divisible by number of GPUs ({})'
       .format(batch_size, n_gpus))
   batch_size //= n_gpus
-  data = np.load(npy_file, mmap_mode='r')
+  data = np.load(npy_file, mmap_mode=None if cache else 'r')
   n, h, w, c = data.shape
   def gen():
     while 1:
