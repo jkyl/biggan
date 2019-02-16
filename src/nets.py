@@ -26,7 +26,7 @@ def GBlock(x, dim):
 def DBlock(x, dim, first=False, down=True):
   with tf.variable_scope(None, default_name='DBlock'):
     x0 = x
-    if first:
+    if not first:
       x = Activation('relu')(x)
     x = ConvSN2D(dim, 3, padding='same')(x)
     x = Activation('relu')(x)
