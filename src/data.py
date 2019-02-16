@@ -64,8 +64,8 @@ def main(args):
           interpolation=cv2.INTER_AREA)
         arr[i] = image
         i += 1
-      except:
-        continue
+      except Exception as err_msg:
+        print(err_msg, f)
   np.savez(args.output_npy, data=arr[:i])
 
 if __name__ == '__main__':
