@@ -1,0 +1,20 @@
+[[source]]
+name = "pypi"
+url = "https://pypi.org/simple"
+verify_ssl = true
+
+[dev-packages]
+
+[packages]
+tensorflow = "==2.0.0-a0"
+ipython = "*"
+matplotlib = "*"
+scikit-learn = "*"
+tensorflow-datasets = "*"
+tfp-nightly = "*"
+
+[requires]
+python_version = "3.7"
+
+[pipenv]
+allow_prereleases = true
