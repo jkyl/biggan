@@ -9,7 +9,7 @@ from tensorflow.keras.layers import *
 from .custom_layers import *
 
 def GBlock(x, dim):
-  with tf.variable_scope(None, default_name='GBlock'):
+  with tf.compat.v1.variable_scope(None, default_name='GBlock'):
     x0 = x
     x = SyncBatchNorm()(x)
     x = Activation('relu')(x)
@@ -24,7 +24,7 @@ def GBlock(x, dim):
     return Add()([x, x0])
 
 def DBlock(x, dim, first=False, down=True):
-  with tf.variable_scope(None, default_name='DBlock'):
+  with tf.compat.v1.variable_scope(None, default_name='DBlock'):
     x0 = x
     if not first:
       x = Activation('relu')(x)
@@ -39,7 +39,7 @@ def DBlock(x, dim, first=False, down=True):
     return Add()([x, x0])
 
 def Attention(x):
-  with tf.variable_scope(None, default_name='Attention'):
+  with tf.compat.v1.variable_scope(None, default_name='Attention'):
     _b, _h, _w, _c = K.int_shape(x)
     f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
     f = Reshape((_h * _w, _c // 8))(f)

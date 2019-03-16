@@ -20,7 +20,7 @@ def model_fn(features, labels, mode, params):
   D = nets.Discriminator(params['channels'])
 
   # sample z from max(N(0,1), 0)
-  z = tf.random_normal((
+  z = tf.random.normal((
     params['batch_size'] // len(data.get_gpus()),
     128), dtype=params['dtype'])
   z = tf.maximum(z, tf.zeros_like(z))
@@ -31,32 +31,32 @@ def model_fn(features, labels, mode, params):
   logits_fake = D(predictions)
 
   # hinge loss function
-  L_G = -tf.reduce_mean(logits_fake)
-  L_D = tf.reduce_mean(tf.nn.relu(1. - logits_real))\
-      + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
+  L_G = -tf.reduce_mean(input_tensor=logits_fake)
+  L_D = tf.reduce_mean(input_tensor=tf.nn.relu(1. - logits_real))\
+      + tf.reduce_mean(input_tensor=tf.nn.relu(1. + logits_fake))
 
   # two-timescale update rule
-  G_opt = tf.train.AdamOptimizer(1e-4, 0., 0.999, 1e-4)
-  D_opt = tf.train.AdamOptimizer(4e-4, 0., 0.999, 1e-4)
+  G_opt = tf.compat.v1.train.AdamOptimizer(1e-4, 0., 0.999, 1e-4)
+  D_opt = tf.compat.v1.train.AdamOptimizer(4e-4, 0., 0.999, 1e-4)
 
   # following SAGAN, nD = 1
-  G_step = tf.train.get_global_step()
+  G_step = tf.compat.v1.train.get_global_step()
   train_op = tf.group(
     G_opt.minimize(L_G, G_step, G.trainable_weights),
     D_opt.minimize(L_D, var_list=D.trainable_weights))
 
   # create some tensorboard summaries
-  tf.summary.image('xhat', data.postprocess_img(predictions), 5)
-  tf.summary.image('x', data.postprocess_img(features), 5)
-  tf.summary.scalar('L_G', L_G)
-  tf.summary.scalar('L_D', L_D)
+  tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 5)
+  tf.compat.v1.summary.image('x', data.postprocess_img(features), 5)
+  tf.compat.v1.summary.scalar('L_G', L_G)
+  tf.compat.v1.summary.scalar('L_D', L_D)
 
   # return an EstimatorSpec
   return tf.estimator.EstimatorSpec(
     mode=mode, loss=L_D, train_op=train_op)
 
 def main(args):
-  tf.logging.set_verbosity(tf.logging.INFO)
+  tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
   estimator = tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
