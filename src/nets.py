@@ -4,14 +4,14 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import *
 from .custom_layers import *
 
-def module(module_function):
+def _module(function):
   def decorated(*args, **kwargs):
     with tf.compat.v1.variable_scope(None, 
-        default_name=module_function.__name__):
-      return module_function(*args, **kwargs)
+        default_name=function.__name__):
+      return function(*args, **kwargs)
   return decorated
 
-@module
+@_module
 def GBlock(x, output_dim, up=False):
   input_dim = K.int_shape(x)[-1]
   x0 = x
@@ -60,7 +60,7 @@ def DBlock(x, output_dim, down=False):
   x = ConvSN2D(output_dim, 1)(x)
   return Add()([x, x0])
 
-@module
+@_module
 def Attention(x):
   _b, _h, _w, _c = K.int_shape(x)
   f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
