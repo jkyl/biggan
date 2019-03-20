@@ -4,6 +4,14 @@ from tensorflow.keras.models import Model
 from tensorflow.keras.layers import *
 from .custom_layers import *
 
+def module(module_function):
+  def decorated(*args, **kwargs):
+    with tf.compat.v1.variable_scope(None, 
+        default_name=module_function.__name__):
+      return module_function(*args, **kwargs)
+  return decorated
+
+@module
 def GBlock(x, output_dim, up=False):
   input_dim = K.int_shape(x)[-1]
   x0 = x
@@ -29,6 +37,7 @@ def GBlock(x, output_dim, up=False):
     x0 = UnPooling2D()(x0)
   return Add()([x, x0])
 
+@module
 def DBlock(x, output_dim, down=False):
   input_dim = K.int_shape(x)[-1]
   x0 = x
@@ -51,22 +60,22 @@ def DBlock(x, output_dim, down=False):
   x = ConvSN2D(output_dim, 1)(x)
   return Add()([x, x0])
 
+@module
 def Attention(x):
-  with tf.compat.v1.variable_scope(None, default_name='Attention'):
-    _b, _h, _w, _c = K.int_shape(x)
-    f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
-    f = Reshape((_h * _w, _c // 8))(f)
-    g = AveragePooling2D()(x)
-    g = ConvSN2D(_c // 8, 1, use_bias=False)(g)
-    g = Reshape((_h * _w // 4, _c // 8))(g)
-    h = AveragePooling2D()(x)
-    h = ConvSN2D(_c // 2, 1, use_bias=False)(h)
-    h = Reshape((_h * _w // 4, _c // 2))(h)
-    attn = Dot((2, 2))([f, g])
-    attn = Activation('softmax')(attn)
-    y = Dot((2, 1))([attn, h])
-    y = Reshape((_h, _w, _c // 2))(y)
-    return ConvSN2D(_c, 1, use_bias=False)(y)
+  _b, _h, _w, _c = K.int_shape(x)
+  f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
+  f = Reshape((_h * _w, _c // 8))(f)
+  g = AveragePooling2D()(x)
+  g = ConvSN2D(_c // 8, 1, use_bias=False)(g)
+  g = Reshape((_h * _w // 4, _c // 8))(g)
+  h = AveragePooling2D()(x)
+  h = ConvSN2D(_c // 2, 1, use_bias=False)(h)
+  h = Reshape((_h * _w // 4, _c // 2))(h)
+  attn = Dot((2, 2))([f, g])
+  attn = Activation('softmax')(attn)
+  y = Dot((2, 1))([attn, h])
+  y = Reshape((_h, _w, _c // 2))(y)
+  return ConvSN2D(_c, 1, use_bias=False)(y)
 
 def Generator(ch):
 

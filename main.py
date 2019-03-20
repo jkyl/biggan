@@ -17,9 +17,8 @@ def model_fn(features, labels, mode, params):
   G.summary(); D.summary()
 
   # sample z from N(0, 1)
-  z = tf.random.normal((
-    tf.shape(features)[0], 128), 
-      dtype=params['dtype'])
+  z = tf.random.normal(dtype=params['dtype'], 
+    shape=(tf.shape(features)[0], G.input_shape[-1]))
 
   # make predictions
   predictions = G(z)
@@ -54,7 +53,7 @@ def model_fn(features, labels, mode, params):
   # return an EstimatorSpec
   return tf.estimator.EstimatorSpec(
     mode=mode, loss=L_D, train_op=train_op)
-
+ 
 def main(args):
   tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
   tf.estimator.Estimator(
@@ -62,8 +61,9 @@ def main(args):
     params=vars(args),
     config=tf.estimator.RunConfig(
       train_distribute=data.get_strategy(),
-      model_dir=args.model_dir)
-  ).train(data.get_train_data, steps=1000000)
+      model_dir=args.model_dir,
+      save_summary_steps=10)
+  ).train(data.get_train_data, steps=1_000_000)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(
