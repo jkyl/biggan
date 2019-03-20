@@ -1,13 +1,9 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
 import tensorflow as tf
-from tensorflow.python.keras import initializers
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.layers import Conv2D, Dense
-from tensorflow.python.keras.engine import InputSpec, Layer
-from tensorflow.python.keras.utils.generic_utils import get_custom_objects
+from tensorflow.keras import initializers
+from tensorflow.keras import backend as K
+from tensorflow.keras.layers import Conv2D, Dense
+from tensorflow.keras.engine import InputSpec, Layer
+from tensorflow.keras.utils.generic_utils import get_custom_objects
 
 class ConvSN2D(Conv2D):
   def build(self, input_shape):

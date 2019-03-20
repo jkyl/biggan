@@ -1,11 +1,6 @@
-from __future__ import absolute_import
-from __future__ import division
-from __future__ import print_function
-
 import tensorflow as tf
-from tensorflow.python.keras import backend as K
-from tensorflow.python.keras.engine.base_layer import InputSpec
-from tensorflow.python.keras.engine.base_layer import Layer
+from tensorflow.keras import backend as K
+from tensorflow.keras.engine.base_layer import InputSpec, Layer
 
 class SyncBatchNorm(Layer):
   """Cross-replica batch normalization layer"""

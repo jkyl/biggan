@@ -1,7 +1,3 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
 import tensorflow as tf
 import numpy as np
 import argparse
@@ -9,10 +5,10 @@ import glob
 import sys
 import os
 
+from tensorflow.python.client import device_lib
+
 def get_gpus():
-  from tensorflow.python.client import device_lib
-  local_device_protos = device_lib.list_local_devices()
-  return [x.name for x in local_device_protos if x.device_type == 'GPU']
+  return [d.name for d in device_lib.list_local_devices() if d.device_type == 'GPU']
 
 def get_strategy():
   gpus = get_gpus()
