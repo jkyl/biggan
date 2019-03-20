@@ -37,7 +37,7 @@ def GBlock(x, output_dim, up=False):
     x0 = UnPooling2D()(x0)
   return Add()([x, x0])
 
-@module
+@_module
 def DBlock(x, output_dim, down=False):
   input_dim = K.int_shape(x)[-1]
   x0 = x
