@@ -15,6 +15,8 @@ def model_fn(features, labels, mode, params):
   G = nets.Generator(params['channels'])
   D = nets.Discriminator(params['channels'])
 
+  G.summary(); D.summary()
+
   # sample z from N(0, 1)
   z = tf.random.normal((
     tf.shape(features)[0], 128), 
@@ -42,7 +44,7 @@ def model_fn(features, labels, mode, params):
   train_op = tf.group(
     G_adam.apply_gradients(zip(grad_G, G.trainable_weights)),
     D_adam.apply_gradients(zip(grad_D, D.trainable_weights)),
-    tf.compat.v1.train.get_global_step().assign(G_adam.iteration))
+    tf.compat.v1.train.get_global_step().assign(G_adam.iterations))
 
   # create some tensorboard summaries
   tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 5)
@@ -55,6 +57,7 @@ def model_fn(features, labels, mode, params):
     mode=mode, loss=L_D, train_op=train_op)
 
 def main(args):
+  tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
   tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),

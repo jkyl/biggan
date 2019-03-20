@@ -1,6 +1,6 @@
 import tensorflow as tf
 from tensorflow.keras import backend as K
-from tensorflow.keras.engine.base_layer import InputSpec, Layer
+from tensorflow.python.keras.engine.base_layer import InputSpec, Layer
 
 class SyncBatchNorm(Layer):
   """Cross-replica batch normalization layer"""

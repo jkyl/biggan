@@ -12,3 +12,10 @@ def UnPooling2D():
     n, h, w, c = input_shape
     return (n, h * 2, w * 2, c)
   return tf.keras.layers.Lambda(func, output_shape=output_shape)
+
+def DropChannels(output_dim):
+  def func(x):
+    return x[..., :output_dim]
+  def output_shape(input_shape):
+    return input_shape[:-1] + (output_dim,)
+  return tf.keras.layers.Lambda(func, output_shape=output_shape)

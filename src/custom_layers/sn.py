@@ -2,8 +2,8 @@ import tensorflow as tf
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Conv2D, Dense
-from tensorflow.keras.engine import InputSpec, Layer
-from tensorflow.keras.utils.generic_utils import get_custom_objects
+from tensorflow.python.keras.engine import InputSpec, Layer
+from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
 class ConvSN2D(Conv2D):
   def build(self, input_shape):
