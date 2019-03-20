@@ -1,8 +1,8 @@
 # generative
-a big old gan
+a "big gan" training algorithm for modest-ish hardware
 
 ## Setup
-```$ pipenv install && pipenv shell```
+```$ pipenv install```
 
 ## Usage
-```$ python main.py data.npy ./output``` 
+```$ pipenv run python3 main.py data.npy ./output```
