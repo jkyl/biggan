@@ -19,11 +19,10 @@ def model_fn(features, labels, mode, params):
   G = nets.Generator(params['channels'])
   D = nets.Discriminator(params['channels'])
 
-  # sample z from max(N(0,1), 0)
+  # sample z from N(0, 1)
   z = tf.random.normal((
-    params['batch_size'] // len(data.get_gpus()),
-    128), dtype=params['dtype'])
-  z = tf.maximum(z, tf.zeros_like(z))
+    tf.shape(features)[0], 128), 
+      dtype=params['dtype'])
 
   # make predictions
   predictions = G(z)
@@ -31,41 +30,42 @@ def model_fn(features, labels, mode, params):
   logits_fake = D(predictions)
 
   # hinge loss function
-  L_G = -tf.reduce_mean(input_tensor=logits_fake)
-  L_D = tf.reduce_mean(input_tensor=tf.nn.relu(1. - logits_real))\
-      + tf.reduce_mean(input_tensor=tf.nn.relu(1. + logits_fake))
+  L_G = -tf.reduce_mean(logits_fake)
+  L_D = tf.reduce_mean(tf.nn.relu(1. - logits_real))\
+      + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
 
   # two-timescale update rule
-  G_opt = tf.compat.v1.train.AdamOptimizer(1e-4, 0., 0.999, 1e-4)
-  D_opt = tf.compat.v1.train.AdamOptimizer(4e-4, 0., 0.999, 1e-4)
+  G_adam = tf.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
+  D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4)
+  
+  # gradients
+  grad_G = G_adam.get_gradients(L_G, G.trainable_weights)
+  grad_D = D_adam.get_gradients(L_D, D.trainable_weights)
 
-  # following SAGAN, nD = 1
-  G_step = tf.compat.v1.train.get_global_step()
+  # nD = 1
   train_op = tf.group(
-    G_opt.minimize(L_G, G_step, G.trainable_weights),
-    D_opt.minimize(L_D, var_list=D.trainable_weights))
+    G_adam.apply_gradients(zip(grad_G, G.trainable_weights)),
+    D_adam.apply_gradients(zip(grad_D, D.trainable_weights)),
+    tf.compat.v1.train.get_global_step().assign(G_adam.iteration))
 
   # create some tensorboard summaries
   tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 5)
   tf.compat.v1.summary.image('x', data.postprocess_img(features), 5)
   tf.compat.v1.summary.scalar('L_G', L_G)
   tf.compat.v1.summary.scalar('L_D', L_D)
-
+ 
   # return an EstimatorSpec
   return tf.estimator.EstimatorSpec(
     mode=mode, loss=L_D, train_op=train_op)
 
 def main(args):
-  tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
-  estimator = tf.estimator.Estimator(
+  tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
     config=tf.estimator.RunConfig(
-      train_distribute=tf.distribute.MirroredStrategy(
-        devices=data.get_gpus()),
-      model_dir=args.model_dir))
-  estimator.train(input_fn=lambda params: data.get_train_data(
-    args.data_file, args.batch_size), max_steps=1000000)
+      train_distribute=data.get_strategy(),
+      model_dir=args.model_dir)
+  ).train(data.get_train_data, steps=1000000)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(

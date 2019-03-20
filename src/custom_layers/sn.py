@@ -40,7 +40,7 @@ class ConvSN2D(Conv2D):
                              initializer=initializers.RandomNormal(0, 1),
                              name='sn',
                              trainable=False,
-                             aggregation=tf.VariableAggregation.ONLY_FIRST_TOWER
+                             aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
                              )
     self.input_spec = InputSpec(ndim=self.rank + 2,
                                 axes={channel_axis: input_dim})
@@ -108,7 +108,7 @@ class DenseSN(Dense):
                              name='sn',
                              dtype=K.floatx(),
                              trainable=False,
-                             aggregation=tf.VariableAggregation.MEAN
+                             aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
                              )
     self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
     self.built = True

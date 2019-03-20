@@ -14,15 +14,25 @@ def get_gpus():
   local_device_protos = device_lib.list_local_devices()
   return [x.name for x in local_device_protos if x.device_type == 'GPU']
 
+def get_strategy():
+  gpus = get_gpus()
+  if gpus:
+    return tf.distribute.MirroredStrategy(devices=gpus)
+
 def preprocess_img(img):
   return tf.cast(img, tf.float16) / 127.5 - 1
 
 def postprocess_img(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
-def get_train_data(npy_file, batch_size, n_threads=8, cache=True):
+def get_train_data(params, n_threads=8, cache=True):
+  npy_file = params['data_file']
+  batch_size = params['batch_size']
   n_gpus = len(get_gpus())
-  if batch_size % n_gpus != 0:
+  if not n_gpus:
+    # cpu only, treat as one device
+    n_gpus = 1
+  elif batch_size % n_gpus != 0:
     raise ValueError(
       'Batch size ({}) is not evenly divisible by number of GPUs ({})'
       .format(batch_size, n_gpus))
