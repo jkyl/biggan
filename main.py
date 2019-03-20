@@ -14,7 +14,6 @@ def model_fn(features, labels, mode, params):
   # build the networks
   G = nets.Generator(params['channels'])
   D = nets.Discriminator(params['channels'])
-
   G.summary(); D.summary()
 
   # sample z from N(0, 1)
