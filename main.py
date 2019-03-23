@@ -62,7 +62,7 @@ def main(args):
     config=tf.estimator.RunConfig(
       train_distribute=data.get_strategy(),
       model_dir=args.model_dir,
-      save_checkpoint_secs=3600,
+      save_checkpoints_secs=3600,
       save_summary_steps=10)
   ).train(data.get_train_data, steps=1_000_000)
 
