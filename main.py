@@ -37,12 +37,17 @@ def model_fn(features, labels, mode, params):
   # gradients
   grad_G = G_adam.get_gradients(L_G, G.trainable_weights)
   grad_D = D_adam.get_gradients(L_D, D.trainable_weights)
-
-  # nD = 1
-  train_op = tf.group(
-    G_adam.apply_gradients(zip(grad_G, G.trainable_weights)),
-    D_adam.apply_gradients(zip(grad_D, D.trainable_weights)),
-    tf.compat.v1.train.get_global_step().assign(G_adam.iterations))
+ 
+  # two D updates for every G update
+  def update_D():
+    return D_adam.apply_gradients(zip(grad_D, D.trainable_weights))
+  def update_G():
+    return G_adam.apply_gradients(zip(grad_G, G.trainable_weights))
+  def update_both():
+    return tf.group(update_G(), update_D(),
+      tf.compat.v1.train.get_global_step().assign(G_adam.iterations)) 
+  every_other = tf.cast(tf.floormod(D_adam.iterations, 2), tf.bool)
+  train_op = tf.cond(every_other, update_both, update_D)
 
   # create some tensorboard summaries
   tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 10)
