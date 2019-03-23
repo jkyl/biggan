@@ -45,8 +45,8 @@ def model_fn(features, labels, mode, params):
     tf.compat.v1.train.get_global_step().assign(G_adam.iterations))
 
   # create some tensorboard summaries
-  tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 5)
-  tf.compat.v1.summary.image('x', data.postprocess_img(features), 5)
+  tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 10)
+  tf.compat.v1.summary.image('x', data.postprocess_img(features), 10)
   tf.compat.v1.summary.scalar('L_G', L_G)
   tf.compat.v1.summary.scalar('L_D', L_D)
  
