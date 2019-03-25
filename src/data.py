@@ -14,6 +14,7 @@ def get_strategy():
   gpus = get_gpus()
   if gpus:
     return tf.distribute.MirroredStrategy(devices=gpus)
+  return tf.distribute.OneDeviceStrategy()
 
 def preprocess_img(img):
   return tf.cast(img, tf.float16) / 127.5 - 1
@@ -26,19 +27,19 @@ def get_train_data(params, n_threads=8, cache=True):
   batch_size = params['batch_size']
   n_gpus = len(get_gpus())
   if not n_gpus:
-    # cpu only, treat as one device
-    n_gpus = 1
+    pass # don't modify batch size
   elif batch_size % n_gpus != 0:
     raise ValueError(
       'Batch size ({}) is not evenly divisible by number of GPUs ({})'
       .format(batch_size, n_gpus))
-  batch_size //= n_gpus
+  else:
+    batch_size //= n_gpus
   data = np.load(npy_file, mmap_mode=None if cache else 'r')
   n, h, w, c = data.shape
   def gen():
     while 1:
       yield data[np.random.randint(n, size=batch_size)]
-  ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
+  ds = tf.data.Dataset.from_generator(gen, tf.uint8)
   ds = ds.map(preprocess_img, n_threads)
   ds = ds.prefetch(n_threads)
   return ds
