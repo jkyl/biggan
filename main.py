@@ -32,22 +32,21 @@ def model_fn(features, labels, mode, params):
 
   # two-timescale update rule
   G_adam = tf.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
-  D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4)
-  
-  # gradients
-  grad_G = G_adam.get_gradients(L_G, G.trainable_weights)
-  grad_D = D_adam.get_gradients(L_D, D.trainable_weights)
- 
-  # two D updates for every G update
-  def update_D():
-    return D_adam.apply_gradients(zip(grad_D, D.trainable_weights))
-  def update_G():
-    return G_adam.apply_gradients(zip(grad_G, G.trainable_weights))
-  def update_both():
-    return tf.group(update_G(), update_D(),
-      tf.compat.v1.train.get_global_step().assign(G_adam.iterations)) 
-  every_other = tf.cast(tf.floormod(D_adam.iterations, 2), tf.bool)
-  train_op = tf.cond(every_other, update_both, update_D)
+  D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4) 
+
+  def minimize(loss, weights, optimizer):
+    def call(_=None):
+      with tf.control_dependencies([optimizer.apply_gradients(
+          zip(optimizer.get_gradients(loss, weights), weights))]):
+        return tf.compat.v1.train.get_global_step().assign(G_adam.iterations)
+    return call
+
+  # nD=2, nG=1
+  train_op = tf.group(
+    tf.while_loop(
+      lambda i: tf.logical_not(tf.cast(tf.floormod(i, 2), tf.bool)),
+      minimize(L_D, D.trainable_weights, D_adam), [D_adam.iterations]), 
+    minimize(L_G, G.trainable_weights, G_adam)())
 
   # create some tensorboard summaries
   tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 10)

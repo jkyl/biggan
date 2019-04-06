@@ -15,7 +15,7 @@ def get_strategy():
   if len(gpus) > 1:
     return tf.distribute.MirroredStrategy(devices=gpus)
   device = gpus[0] if gpus else 'CPU:0'
-  return tf.distribute.OneDeviceStrategy(device)
+  return tf.distribute.MirroredStrategy([device])
 
 def preprocess_img(img):
   return tf.cast(img, tf.float16) / 127.5 - 1
