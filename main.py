@@ -1,10 +1,10 @@
 import tensorflow as tf
 import argparse
+import logging
 
 from src import nets, data
 
-def model_fn(features, labels, mode, params):
-  del labels # unused
+def model_fn(features, mode, params):
 
   # set the learning phase and float precision
   tf.keras.backend.set_learning_phase(True)
@@ -34,18 +34,20 @@ def model_fn(features, labels, mode, params):
   G_adam = tf.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
   D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4) 
 
-  def minimize(loss, weights, optimizer):
-    with tf.control_dependencies([optimizer.apply_gradients(
-        zip(optimizer.get_gradients(loss, weights), weights))]):
-      return tf.compat.v1.train.get_global_step().assign(G_adam.iterations)
-    
+  def minimize(loss, weights, optimizer, iteration):
+    with tf.control_dependencies([
+        optimizer.apply_gradients(zip(optimizer.get_gradients(loss, weights), weights)),
+        tf.compat.v1.train.get_global_step().assign(G_adam.iterations)]):
+      return tf.add(iteration, 1)
+
   # nD=2, nG=1
+  counter = tf.constant(0)
   train_op = tf.group(
     tf.while_loop(
-      lambda i: tf.logical_not(tf.cast(tf.floormod(i, 2), tf.bool)),
-      lambda i: minimize(L_D, D.trainable_weights, D_adam), 
-      [D_adam.iterations]), 
-    minimize(L_G, G.trainable_weights, G_adam))
+      lambda i: tf.less(i, 2),
+      lambda i: minimize(L_D, D.trainable_weights, D_adam, i), 
+      [counter]), 
+    minimize(L_G, G.trainable_weights, G_adam, counter))
 
   # create some tensorboard summaries
   tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 10)
@@ -58,7 +60,7 @@ def model_fn(features, labels, mode, params):
     mode=mode, loss=L_D, train_op=train_op)
  
 def main(args):
-  tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
+  tf.get_logger().setLevel(logging.INFO)
   tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
