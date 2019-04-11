@@ -1,8 +1,21 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import tensorflow as tf
 import argparse
 import logging
 
-from src import nets, data
+# estimator API doesn't handle these deprecations yet
+from tensorflow.compat.v1.train import get_global_step
+from tensorflow.compat.v1 import summary
+
+# local imports
+from src.nets import Generator
+from src.nets import Discriminator
+from src.data import get_train_data
+from src.data import postprocess
+
 
 def model_fn(features, mode, params):
 
@@ -12,10 +25,10 @@ def model_fn(features, mode, params):
   features = tf.cast(features, params['dtype'])
 
   # build the networks
-  G = nets.Generator(params['channels'])
-  D = nets.Discriminator(params['channels'])
+  G = Generator(params['channels'])
+  D = Discriminator(params['channels'])
   G.summary(); D.summary()
-
+  
   # sample z from N(0, 1)
   z = tf.random.normal(dtype=params['dtype'], 
     shape=(tf.shape(features)[0], G.input_shape[-1]))
@@ -30,17 +43,19 @@ def model_fn(features, mode, params):
   L_D = tf.reduce_mean(tf.nn.relu(1. - logits_real))\
       + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
 
-  # two-timescale update rule
+  # dual Adam optimizers
   G_adam = tf.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
   D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4) 
 
+  # v1-style `minimize` (w/o gradient tape)
   def minimize(loss, weights, optimizer, iteration):
     with tf.control_dependencies([
-        optimizer.apply_gradients(zip(optimizer.get_gradients(loss, weights), weights)),
-        tf.compat.v1.train.get_global_step().assign(G_adam.iterations)]):
+        optimizer.apply_gradients(zip(
+          optimizer.get_gradients(loss, weights), weights)),
+        get_global_step().assign(G_adam.iterations)]):
       return tf.add(iteration, 1)
 
-  # nD=2, nG=1
+  # update D twice for every G update
   counter = tf.constant(0)
   train_op = tf.group(
     tf.while_loop(
@@ -50,10 +65,10 @@ def model_fn(features, mode, params):
     minimize(L_G, G.trainable_weights, G_adam, counter))
 
   # create some tensorboard summaries
-  tf.compat.v1.summary.image('xhat', data.postprocess_img(predictions), 10)
-  tf.compat.v1.summary.image('x', data.postprocess_img(features), 10)
-  tf.compat.v1.summary.scalar('L_G', L_G)
-  tf.compat.v1.summary.scalar('L_D', L_D)
+  summary.image('xhat', postprocess(predictions), 10)
+  summary.image('x', postprocess(features), 10)
+  summary.scalar('L_G', L_G)
+  summary.scalar('L_D', L_D)
  
   # return an EstimatorSpec
   return tf.estimator.EstimatorSpec(
@@ -69,7 +84,7 @@ def main(args):
       model_dir=args.model_dir,
       save_checkpoints_secs=3600,
       save_summary_steps=10)
-  ).train(data.get_train_data, steps=1_000_000)
+  ).train(data.get_train_data, steps=1000000)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(
