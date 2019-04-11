@@ -17,10 +17,10 @@ def get_strategy():
   device = gpus[0] if gpus else 'CPU:0'
   return tf.distribute.MirroredStrategy([device])
 
-def preprocess_img(img):
+def preprocess(img):
   return tf.cast(img, tf.float16) / 127.5 - 1
 
-def postprocess_img(img):
+def postprocess(img):
   return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
 def get_train_data(params, n_threads=8, cache=True):
@@ -41,7 +41,7 @@ def get_train_data(params, n_threads=8, cache=True):
     while 1:
       yield data[np.random.randint(n, size=batch_size)]
   ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
-  ds = ds.map(preprocess_img, n_threads)
+  ds = ds.map(preprocess, n_threads)
   ds = ds.prefetch(n_threads)
   return ds
 
