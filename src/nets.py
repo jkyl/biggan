@@ -1,3 +1,7 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import tensorflow as tf
 from tensorflow.keras import backend as K
 from tensorflow.keras.models import Model
@@ -79,10 +83,10 @@ def Attention(x):
 
 def Generator(ch):
 
-  # Input `z`-vector
+  # input z-vector
   z = Input((128,))
   
-  # Project `z` and reshape
+  # project z and reshape
   x = DenseSN(4 * 4 * 16 * ch, use_bias=False)(z)
   x = Reshape((4, 4, 16 * ch))(x)
   
@@ -102,7 +106,7 @@ def Generator(ch):
   x = GBlock(x, 8 * ch, up=False)
   x = GBlock(x, 4 * ch, up=True)
 
-  # Non-local @ 64x64
+  # non-local @ 64x64
   x = Attention(x)
 
   # 64x64 -> 128x128
@@ -113,18 +117,18 @@ def Generator(ch):
   x = GBlock(x, 2 * ch, up=False)
   x = GBlock(x, ch, up=True)
 
-  # Output block @ 256x256
+  # output block @ 256x256
   x = SyncBatchNorm()(x)
   x = Activation('relu')(x)
   x = ConvSN2D(3, 3, padding='same')(x)
   x = Activation('tanh')(x)
   
-  # Return Keras model
+  # return keras model
   return Model(inputs=z, outputs=x, name='Generator')
 
 def Discriminator(ch):
   
-  # Input image
+  # input image
   x = inp = Input((256, 256, 3))
   
   # 256x256 -> 128x128
@@ -136,7 +140,7 @@ def Discriminator(ch):
   x = DBlock(x, 4 * ch, down=True)
   x = DBlock(x, 4 * ch, down=False)
  
-  # Non-local @ 64x64
+  # non-local @ 64x64
   x = Attention(x)
 
   # 64x64 -> 32x32
@@ -155,10 +159,10 @@ def Discriminator(ch):
   x = DBlock(x, 16 * ch, down=True)
   x = DBlock(x, 16 * ch, down=False)
 
-  # Pool and project to scalar
+  # pool and project to scalar
   x = Activation('relu')(x)
   x = GlobalAveragePooling2D()(x)
   x = DenseSN(1)(x)
 
-  # Return Keras model
+  # return keras model
   return Model(inputs=inp, outputs=x, name='Discriminator')

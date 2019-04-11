@@ -6,14 +6,13 @@ import tensorflow as tf
 import argparse
 import logging
 
-# estimator API doesn't handle these deprecations yet
 from tensorflow.compat.v1.train import get_global_step
 from tensorflow.compat.v1 import summary
 
-# local imports
 from src.nets import Generator
 from src.nets import Discriminator
 from src.data import get_train_data
+from src.data import get_strategy
 from src.data import postprocess
 
 
@@ -21,8 +20,8 @@ def model_fn(features, mode, params):
 
   # set the learning phase and float precision
   tf.keras.backend.set_learning_phase(True)
-  tf.keras.backend.set_floatx('float16')
-  features = tf.cast(features, 'float16')
+  tf.keras.backend.set_floatx(tf.float16)
+  features = tf.cast(features, tf.float16)
 
   # build the networks
   G = Generator(params['channels'])
@@ -30,7 +29,7 @@ def model_fn(features, mode, params):
   G.summary(); D.summary()
   
   # sample z from N(0, 1)
-  z = tf.random.normal(dtype=params['dtype'], 
+  z = tf.random.normal(dtype=tf.float16,
     shape=(tf.shape(features)[0], G.input_shape[-1]))
 
   # make predictions
@@ -79,18 +78,18 @@ def main(args):
   tf.estimator.Estimator(
     model_fn=model_fn,
     params=vars(args),
+    model_dir=args.model_dir,
     config=tf.estimator.RunConfig(
-      train_distribute=data.get_strategy(),
-      model_dir=args.model_dir,
+      train_distribute=get_strategy(),
       save_checkpoints_secs=3600,
-      save_summary_steps=10)
-  ).train(data.get_train_data, steps=1000000)
+      save_summary_secs=60)
+  ).train(get_train_data, steps=1000000)
 
 if __name__ == '__main__':
   p = argparse.ArgumentParser(
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   p.add_argument('data_file', type=str,
-    help='.npz file containing preprocessed image data')
+    help='.npy file containing preprocessed image data')
   p.add_argument('model_dir', type=str,
     help='directory in which to save checkpoints and summaries')
   p.add_argument('-bs', dest='batch_size', type=int, default=64,
