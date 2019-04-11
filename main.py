@@ -21,8 +21,8 @@ def model_fn(features, mode, params):
 
   # set the learning phase and float precision
   tf.keras.backend.set_learning_phase(True)
-  tf.keras.backend.set_floatx(params['dtype'])
-  features = tf.cast(features, params['dtype'])
+  tf.keras.backend.set_floatx('float16')
+  features = tf.cast(features, 'float16')
 
   # build the networks
   G = Generator(params['channels'])
@@ -93,10 +93,8 @@ if __name__ == '__main__':
     help='.npz file containing preprocessed image data')
   p.add_argument('model_dir', type=str,
     help='directory in which to save checkpoints and summaries')
-  p.add_argument('-bs', '--batch_size', type=int, default=64,
+  p.add_argument('-bs', dest='batch_size', type=int, default=64,
     help='number of samples per minibatch update')
-  p.add_argument('-ch', '--channels', type=int, default=16,
+  p.add_argument('-ch', dest='channels', type=int, default=16,
     help='channel multiplier in G and D')
-  p.add_argument('-dt', '--dtype', choices=('float32', 'float16'),
-    default='float16', help='training float precision')
   main(p.parse_args())
