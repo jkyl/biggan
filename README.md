@@ -1,5 +1,10 @@
 # generative
-a "big gan" training algorithm for modest-ish hardware
+An unconditional "BigGAN-deep" training algorithm for modest-ish hardware
+
+## Setup
+```bash
+$ pip install tensorflow-gpu==2.0.0a0
+```
 
 ## Usage
 ```
