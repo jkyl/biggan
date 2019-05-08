@@ -20,7 +20,7 @@ def model_fn(features, mode, params):
 
   # set the learning phase and float precision
   tf.keras.backend.set_learning_phase(True)
-  tf.keras.backend.set_floatx(tf.float16)
+  tf.keras.backend.set_floatx('float16')
   features = tf.cast(features, tf.float16)
 
   # build the networks
@@ -82,7 +82,7 @@ def main(args):
     config=tf.estimator.RunConfig(
       train_distribute=get_strategy(),
       save_checkpoints_secs=3600,
-      save_summary_secs=60)
+      save_summary_steps=10)
   ).train(get_train_data, steps=1000000)
 
 if __name__ == '__main__':
