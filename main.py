@@ -43,8 +43,8 @@ def model_fn(features, mode, params):
       + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
 
   # dual Adam optimizers
-  G_adam = tf.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
-  D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4) 
+  G_adam = tf.keras.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
+  D_adam = tf.keras.optimizers.Adam(4e-4, 0., 0.999, 1e-4) 
 
   # v1-style `minimize` (w/o gradient tape)
   def minimize(loss, weights, optimizer, iteration):
