@@ -1,5 +1,5 @@
 # BigGAN-deep
-A [BigGAN](https://arxiv.org/abs/1809.11096) training algorithm for more modest hardware
+A [BigGAN](https://arxiv.org/abs/1809.11096) training algorithm for modest hardware
 
 ## Setup
 ```bash
