@@ -1,18 +1,22 @@
-import tensorflow as tf
-from tensorflow.keras import backend as K
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 from tensorflow.python.keras.engine.base_layer import InputSpec, Layer
+import tensorflow as tf
 
 class SyncBatchNorm(Layer):
   """Cross-replica batch normalization layer"""
-  def __init__(self,
-               center=True,
-               scale=False,
-               trainable=True,
-               name=None,
-               **kwargs):
+  def __init__(
+      self,
+      center=True,
+      scale=False,
+      trainable=True,
+      name=None,
+      **kwargs
+    ):
     super(SyncBatchNorm, self).__init__(
-        name=name, trainable=trainable, **kwargs)
-
+      name=name, trainable=trainable, **kwargs)
     self.axis = -1
     self.center = center
     self.scale = scale
@@ -22,35 +26,43 @@ class SyncBatchNorm(Layer):
   def build(self, input_shape):
     dim = input_shape[self.axis]
     if dim is None:
-      raise ValueError('Axis ' + str(self.axis) + ' of '
-                       'input tensor should have a defined dimension '
-                       'but the layer received an input with shape ' +
-                       str(input_shape) + '.')
-    self.input_spec = InputSpec(ndim=len(input_shape),
-                                axes={self.axis: dim})
+      raise ValueError(
+        'Axis ' + str(self.axis) + ' of '
+        'input tensor should have a defined dimension '
+        'but the layer received an input with shape ' +
+        str(input_shape) + '.'
+      )
+    self.input_spec = InputSpec(
+      ndim=len(input_shape),
+      axes={self.axis: dim}
+    )
     shape = (dim,)
-
     if self.scale:
-      self.gamma = self.add_weight(shape=shape,
-                                   name='gamma',
-                                   initializer='ones',
-                                   )
+      self.gamma = self.add_weight(
+        shape=shape,
+        name='gamma',
+        initializer='ones',
+      )
     else:
       self.gamma = None
     if self.center:
-      self.beta = self.add_weight(shape=shape,
-                                  name='beta',
-                                  initializer='zeros',
-                                  )
+      self.beta = self.add_weight(
+        shape=shape,
+        name='beta',
+        initializer='zeros',
+      )
     else:
       self.beta = None
     self.built = True
 
-  def call(self, x):
+  def call(self, x, training=None):
     ctx = tf.distribute.get_replica_context()
     n = ctx.num_replicas_in_sync
-    mean, mean_sq = ctx.all_reduce(tf.distribute.ReduceOp.SUM, [
-      K.mean(x, axis=0) / n, K.mean(x**2, axis=0) / n])
+    mean, mean_sq = ctx.all_reduce(
+      tf.distribute.ReduceOp.SUM,
+      [tf.reduce_mean(x, axis=0) / n,
+       tf.reduce_mean(x**2, axis=0) / n]
+    )
     variance = mean_sq - mean ** 2
     return tf.nn.batch_normalization(
       x,

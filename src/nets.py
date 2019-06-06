@@ -3,10 +3,23 @@ from __future__ import print_function
 from __future__ import division
 
 import tensorflow as tf
-from tensorflow.keras import backend as K
-from tensorflow.keras.models import Model
-from tensorflow.keras.layers import *
-from .custom_layers import *
+
+from tensorflow.keras.backend import int_shape
+from tensorflow.keras.layers import GlobalAveragePooling2D
+from tensorflow.keras.layers import AveragePooling2D
+from tensorflow.keras.layers import UpSampling2D
+from tensorflow.keras.layers import Concatenate
+from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Reshape
+from tensorflow.keras.layers import Add
+from tensorflow.keras.layers import Dot
+from tensorflow.keras import Model
+from tensorflow.keras import Input
+
+from .custom_layers import SyncBatchNorm
+from .custom_layers import ConvSN2D
+from .custom_layers import DenseSN
+
 
 def _module(function):
   def decorated(*args, **kwargs):
@@ -15,9 +28,16 @@ def _module(function):
       return function(*args, **kwargs)
   return decorated
 
+def DropChannels(output_dim):
+  def call(x):
+    return x[..., :output_dim]
+  def output_shape(input_shape):
+    return input_shape[:-1] + (output_dim,)
+  return tf.keras.layers.Lambda(call, output_shape=output_shape)
+
 @_module
 def GBlock(x, output_dim, up=False):
-  input_dim = K.int_shape(x)[-1]
+  input_dim = int_shape(x)[-1]
   x0 = x
   x = SyncBatchNorm()(x)
   x = Activation('relu')(x)
@@ -25,7 +45,7 @@ def GBlock(x, output_dim, up=False):
   x = SyncBatchNorm()(x)
   x = Activation('relu')(x)
   if up:
-    x = UnPooling2D()(x)
+    x = UpSampling2D()(x)
   x = ConvSN2D(input_dim//4, 3, padding='same', use_bias=False)(x)
   x = SyncBatchNorm()(x)
   x = Activation('relu')(x)
@@ -38,12 +58,12 @@ def GBlock(x, output_dim, up=False):
   elif input_dim < output_dim:
     raise ValueError
   if up:
-    x0 = UnPooling2D()(x0)
+    x0 = UpSampling2D()(x0)
   return Add()([x, x0])
 
 @_module
 def DBlock(x, output_dim, down=False):
-  input_dim = K.int_shape(x)[-1]
+  input_dim = int_shape(x)[-1]
   x0 = x
   x = Activation('relu')(x)
   x = ConvSN2D(input_dim//4, 1)(x)
@@ -66,7 +86,7 @@ def DBlock(x, output_dim, down=False):
 
 @_module
 def Attention(x):
-  _b, _h, _w, _c = K.int_shape(x)
+  _b, _h, _w, _c = int_shape(x)
   f = ConvSN2D(_c // 8, 1, use_bias=False)(x)
   f = Reshape((_h * _w, _c // 8))(f)
   g = AveragePooling2D()(x)

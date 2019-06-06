@@ -7,7 +7,6 @@ import numpy as np
 import argparse
 import logging
 import glob
-import cv2
 import os
 
 from tensorflow.python.client import device_lib
@@ -32,7 +31,7 @@ def preprocess(img):
   '''Casts a tensor's type to half-precision float, 
   then scales its values to the range [-1, 1]
   '''
-  return tf.cast(img, tf.float16) / 127.5 - 1
+  return tf.cast(img, tf.float32) / 127.5 - 1
 
 def postprocess(img):
   '''Scales a tensor's values to the range [0, 255], 
@@ -40,23 +39,21 @@ def postprocess(img):
   '''
   return tf.cast(tf.clip_by_value(img * 127.5 + 127.5, 0, 255), tf.uint8)
 
-def get_train_data(params, n_threads=8, cache=True):
+def get_train_data(data_file, batch_size, n_threads=8, cache=True):
   '''Creates a training data pipeline that samples batches 
   from an array of pre-cropped image data in the provided 
   .npy file, caching it in memory unless otherwise provided
   '''
-  npy_file = params['data_file']
-  batch_size = params['batch_size']
   n_gpus = len(get_gpus())
   if not n_gpus:
     pass
   elif batch_size % n_gpus:
     raise ValueError(
       'batch size ({}) is not evenly divisible by number of GPUs ({})'
-      .format(batch_size, n_gpus))
+      .format(data_file, n_gpus))
   else:
     batch_size //= n_gpus
-  data = np.load(npy_file, mmap_mode=None if cache else 'r')
+  data = np.load(data_file, mmap_mode=None if cache else 'r')
   n, h, w, c = data.shape
   def gen():
     while True:
@@ -85,6 +82,9 @@ def _load_crop_resize_img(filename, image_size):
   '''Loads an image from disk, crops into a square along 
   its major axis, then downsamples to the given size
   '''
+  # lazily import opencv for ease of cloud training
+  import cv2
+
   # load the image and get its size
   image = cv2.imread(filename)
   size = image.shape[:2]
@@ -153,7 +153,7 @@ def _parse_args():
   p.add_argument('data_dir', type=str,
     help='directory containing training PNGs and/or JPGs')
   p.add_argument('output_npy', type=str,
-    help='.npz file in which to save preprocessed images')
+    help='.npy file in which to save preprocessed images')
   p.add_argument('-is', '--image_size', type=int, default=128,
     help='size of downsampled images')
   return vars(p.parse_args())

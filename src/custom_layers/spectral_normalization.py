@@ -1,8 +1,12 @@
+from __future__ import absolute_import
+from __future__ import print_function
+from __future__ import division
+
 import tensorflow as tf
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Conv2D, Dense
-from tensorflow.python.keras.engine import InputSpec, Layer
+from tensorflow.python.keras.engine import InputSpec
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
 class ConvSN2D(Conv2D):
@@ -13,33 +17,40 @@ class ConvSN2D(Conv2D):
     else:
       channel_axis = -1
     if input_shape[channel_axis] is None:
-      raise ValueError('The channel dimension of the inputs '
-                       'should be defined. Found `None`.')
+      raise ValueError(
+        'The channel dimension of the inputs '
+        'should be defined. Found `None`.'
+      )
     input_dim = input_shape[channel_axis]
     kernel_shape = self.kernel_size + (input_dim, self.filters)
-    self.kernel = self.add_weight(shape=kernel_shape,
-                                  initializer=self.kernel_initializer,
-                                  name='kernel',
-                                  regularizer=self.kernel_regularizer,
-                                  constraint=self.kernel_constraint
-                                  )
+    self.kernel = self.add_weight(
+      shape=kernel_shape,
+        initializer=self.kernel_initializer,
+        name='kernel',
+        regularizer=self.kernel_regularizer,
+        constraint=self.kernel_constraint,
+    )
     if self.use_bias:
-      self.bias = self.add_weight(shape=(self.filters,),
-                                  initializer=self.bias_initializer,
-                                  name='bias',
-                                  regularizer=self.bias_regularizer,
-                                  constraint=self.bias_constraint
-                                  )
+      self.bias = self.add_weight(
+        shape=(self.filters,),
+        initializer=self.bias_initializer,
+        name='bias',
+        regularizer=self.bias_regularizer,
+        constraint=self.bias_constraint,
+      )
     else:
       self.bias = None
-    self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
-                             initializer=initializers.RandomNormal(0, 1),
-                             name='sn',
-                             trainable=False,
-                             aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
-                             )
-    self.input_spec = InputSpec(ndim=self.rank + 2,
-                                axes={channel_axis: input_dim})
+    self.u = self.add_weight(
+      shape=tuple([1, self.kernel.shape.as_list()[-1]]),
+        initializer=initializers.RandomNormal(0, 1),
+        name='sn',
+        trainable=False,
+        aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+      )
+    self.input_spec = InputSpec(
+      ndim=self.rank + 2,
+      axes={channel_axis: input_dim}
+    )
     self.built = True
 
   def call(self, inputs, training=None):
@@ -82,31 +93,37 @@ class DenseSN(Dense):
     input_shape = input_shape.as_list()
     assert len(input_shape) >= 2
     input_dim = input_shape[-1]
-    self.kernel = self.add_weight(shape=(input_dim, self.units),
-                                  initializer=self.kernel_initializer,
-                                  name='kernel',
-                                  dtype=K.floatx(),
-                                  regularizer=self.kernel_regularizer,
-                                  constraint=self.kernel_constraint
-                                  )
+    self.kernel = self.add_weight(
+      shape=(input_dim, self.units),
+      initializer=self.kernel_initializer,
+      name='kernel',
+      dtype=K.floatx(),
+      regularizer=self.kernel_regularizer,
+      constraint=self.kernel_constraint,
+    )
     if self.use_bias:
-      self.bias = self.add_weight(shape=(self.units,),
-                                  initializer=self.bias_initializer,
-                                  name='bias',
-                                  dtype=K.floatx(),
-                                  regularizer=self.bias_regularizer,
-                                  constraint=self.bias_constraint
-                                  )
+      self.bias = self.add_weight(
+        shape=(self.units,),
+        initializer=self.bias_initializer,
+        name='bias',
+        dtype=K.floatx(),
+        regularizer=self.bias_regularizer,
+        constraint=self.bias_constraint,
+      )
     else:
       self.bias = None
-    self.u = self.add_weight(shape=tuple([1, self.kernel.shape.as_list()[-1]]),
-                             initializer=initializers.RandomNormal(0, 1),
-                             name='sn',
-                             dtype=K.floatx(),
-                             trainable=False,
-                             aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA
-                             )
-    self.input_spec = InputSpec(min_ndim=2, axes={-1: input_dim})
+    self.u = self.add_weight(
+      shape=tuple([1, self.kernel.shape.as_list()[-1]]),
+      initializer=initializers.RandomNormal(0, 1),
+      name='sn',
+      dtype=K.floatx(),
+      trainable=False,
+      aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+    )
+    self.input_spec = InputSpec(
+      min_ndim=2,
+      axes={-1: input_dim}
+    )
     self.built = True
 
   def call(self, inputs, training=None):
