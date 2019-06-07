@@ -30,7 +30,7 @@ def main(args):
 
     # sample latent vector `z` from N(0, 1)
     z = tf.random.normal(dtype=tf.float32,
-      shape=(args.batch_size, G.input_shape[-1]))
+      shape=(features.shape[0], G.input_shape[-1]))
 
     # make predictions
     predictions = G(z)
@@ -67,14 +67,17 @@ def main(args):
     return tf.estimator.EstimatorSpec(
       mode=mode, loss=L_D, train_op=train_op)
 
+  # enable log messages
   tf.get_logger().setLevel(logging.INFO)
+
+  # dispatch estimator training
   tf.estimator.Estimator(
     model_fn=model_fn,
     model_dir=args.model_dir,
     config=tf.estimator.RunConfig(
       train_distribute=get_strategy(),
       save_checkpoints_secs=3600,
-      save_summary_steps=10,
+      save_summary_steps=100,
     )
   ).train(lambda:
     get_train_data(
@@ -101,7 +104,7 @@ def parse_arguments():
     dest='batch_size',
     type=int,
     default=64,
-    help='number of samples per minibatch update',
+    help='global (not per-replica) number of samples per update',
   )
   p.add_argument(
     '-ch',
