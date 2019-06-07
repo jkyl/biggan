@@ -19,6 +19,12 @@ from tensorflow.compat.v1 import summary
 def main(args):
   '''Trains a BigGAN-deep on some preprocessed images
   '''
+  def hinge_loss(logits_real, logits_fake):
+    L_G = -tf.reduce_sum(logits_fake)
+    L_D = tf.reduce_sum(tf.nn.relu(1. - logits_real))\
+        + tf.reduce_sum(tf.nn.relu(1. + logits_fake))
+    return [l * (1. / args.batch_size) for l in (L_G, L_D)]
+
   def model_fn(features, mode):
     '''Constructs an EstimatorSpec encompassing the GAN
     training algorithm on some `features` tensor
@@ -38,13 +44,11 @@ def main(args):
     logits_fake = D(predictions)
 
     # hinge loss function
-    L_G = -tf.reduce_mean(logits_fake)
-    L_D = tf.reduce_mean(tf.nn.relu(1. - logits_real))\
-        + tf.reduce_mean(tf.nn.relu(1. + logits_fake))
+    L_G, L_D = hinge_loss(logits_real, logits_fake)
 
     # dual Adam optimizers
-    G_adam = tf.optimizers.Adam(1e-4, 0., 0.999, 1e-4)
-    D_adam = tf.optimizers.Adam(4e-4, 0., 0.999, 1e-4)
+    G_adam = tf.optimizers.Adam(1e-4, 0., 0.9)
+    D_adam = tf.optimizers.Adam(4e-4, 0., 0.9)
 
     # graph-mode `minimize`
     def minimize(loss, weights, optimizer):
