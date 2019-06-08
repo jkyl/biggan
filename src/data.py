@@ -83,7 +83,10 @@ def _load_crop_resize_img(filename, image_size):
   its major axis, then downsamples to the given size
   '''
   # lazily import opencv for ease of cloud training
-  import cv2
+  try:
+    cv2
+  except NameError:
+    import cv2
 
   # load the image and get its size
   image = cv2.imread(filename)
@@ -154,7 +157,7 @@ def _parse_args():
     help='directory containing training PNGs and/or JPGs')
   p.add_argument('output_npy', type=str,
     help='.npy file in which to save preprocessed images')
-  p.add_argument('-is', '--image_size', type=int, default=128,
+  p.add_argument('-is', '--image_size', type=int, default=256,
     help='size of downsampled images')
   return vars(p.parse_args())
 
