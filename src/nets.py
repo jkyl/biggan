@@ -16,7 +16,7 @@ from tensorflow.keras.layers import Dot
 from tensorflow.keras import Model
 from tensorflow.keras import Input
 
-from .custom_layers import SyncBatchNorm
+from .custom_layers import HyperBatchNorm
 from .custom_layers import ConvSN2D
 from .custom_layers import DenseSN
 
@@ -36,21 +36,21 @@ def DropChannels(output_dim):
   return tf.keras.layers.Lambda(call, output_shape=output_shape)
 
 @_module
-def GBlock(x, output_dim, up=False):
+def GBlock(x, z, output_dim, up=False):
   input_dim = int_shape(x)[-1]
   x0 = x
-  x = SyncBatchNorm()(x)
+  x = HyperBatchNorm()([x, z])
   x = Activation('relu')(x)
   x = ConvSN2D(input_dim//4, 1, use_bias=False)(x)
-  x = SyncBatchNorm()(x)
+  x = HyperBatchNorm()([x, z])
   x = Activation('relu')(x)
   if up:
     x = UpSampling2D()(x)
   x = ConvSN2D(input_dim//4, 3, padding='same', use_bias=False)(x)
-  x = SyncBatchNorm()(x)
+  x = HyperBatchNorm()([x, z])
   x = Activation('relu')(x)
   x = ConvSN2D(input_dim//4, 3, padding='same', use_bias=False)(x)
-  x = SyncBatchNorm()(x)
+  x = HyperBatchNorm()([x, z])
   x = Activation('relu')(x)
   x = ConvSN2D(output_dim, 1, use_bias=False)(x)
   if input_dim > output_dim:
@@ -111,34 +111,34 @@ def Generator(ch):
   x = Reshape((4, 4, 16 * ch))(x)
   
   # 4x4 -> 8x8
-  x = GBlock(x, 16 * ch, up=False)
-  x = GBlock(x, 16 * ch, up=True)
+  x = GBlock(x, z, 16 * ch, up=False)
+  x = GBlock(x, z, 16 * ch, up=True)
 
   # 8x8 -> 16x16
-  x = GBlock(x, 16 * ch, up=False)
-  x = GBlock(x, 8 * ch, up=True)
+  x = GBlock(x, z, 16 * ch, up=False)
+  x = GBlock(x, z, 8 * ch, up=True)
 
   # 16x16 -> 32x32
-  x = GBlock(x, 8 * ch, up=False)
-  x = GBlock(x, 8 * ch, up=True)
+  x = GBlock(x, z, 8 * ch, up=False)
+  x = GBlock(x, z, 8 * ch, up=True)
   
   # 32x32 -> 64x64
-  x = GBlock(x, 8 * ch, up=False)
-  x = GBlock(x, 4 * ch, up=True)
+  x = GBlock(x, z, 8 * ch, up=False)
+  x = GBlock(x, z, 4 * ch, up=True)
 
   # non-local @ 64x64
   x = Attention(x)
 
   # 64x64 -> 128x128
-  x = GBlock(x, 4 * ch, up=False)
-  x = GBlock(x, 2 * ch, up=True)
+  x = GBlock(x, z, 4 * ch, up=False)
+  x = GBlock(x, z, 2 * ch, up=True)
 
   # 128x128 -> 256x256
-  x = GBlock(x, 2 * ch, up=False)
-  x = GBlock(x, ch, up=True)
+  x = GBlock(x, z, 2 * ch, up=False)
+  x = GBlock(x, z, ch, up=True)
 
   # output block @ 256x256
-  x = SyncBatchNorm()(x)
+  x = HyperBatchNorm()([x, z])
   x = Activation('relu')(x)
   x = ConvSN2D(3, 3, padding='same')(x)
   x = Activation('tanh')(x)

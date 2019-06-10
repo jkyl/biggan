@@ -3,4 +3,4 @@ from __future__ import print_function
 from __future__ import division
 
 from .spectral_normalization import ConvSN2D, DenseSN
-from .batch_normalization import SyncBatchNorm
+from .batch_normalization import HyperBatchNorm
