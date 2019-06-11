@@ -1,10 +1,11 @@
 # BigGAN-deep
-A [BigGAN](https://arxiv.org/abs/1809.11096) training algorithm for modest hardware
+A [BigGAN](https://arxiv.org/abs/1809.11096) training algorithm for modest<sup>†</sup> hardware
+> †: tested on 4x Titan Xp
 
 ## Setup
 ```bash
 # download dependencies
-$ pip install tensorflow-gpu==2.0.0a0 opencv-python
+$ pip install tensorflow-gpu==2.0.0b0 opencv-python
 
 # preprocess some image data offline
 $ python src/data.py /nested/path/to/images/ output.npy
