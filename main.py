@@ -17,7 +17,7 @@ from tensorflow.compat.v1 import summary
 
 
 def main(args):
-  '''Trains a BigGAN-deep on some preprocessed images
+  '''Trains a BigGAN-deep on a preprocessed image dataset
   '''
   def hinge_loss(logits_real, logits_fake):
     L_G = -tf.reduce_sum(logits_fake)
@@ -27,16 +27,17 @@ def main(args):
 
   def model_fn(features, mode):
     '''Constructs an EstimatorSpec encompassing the GAN
-    training algorithm on some `features` tensor
+    training algorithm given some image `features`
     '''
     # build the networks
     G = Generator(args.channels)
     D = Discriminator(args.channels)
     G.summary(); D.summary()
 
-    # sample latent vector `z` from N(0, 1)
+    # sample latent vector `z` from max(N(0, 1), 0)
     z = tf.random.normal(dtype=tf.float32,
       shape=(features.shape[0], G.input_shape[-1]))
+    z = tf.maximum(z, tf.zeros_like(z))
 
     # make predictions
     predictions = G(z)
@@ -79,7 +80,8 @@ def main(args):
     model_fn=model_fn,
     model_dir=args.model_dir,
     config=tf.estimator.RunConfig(
-      train_distribute=get_strategy(),
+      train_distribute=None if args.debug
+        else get_strategy(),
       save_checkpoints_secs=3600,
       save_summary_steps=100,
     )
@@ -114,8 +116,13 @@ def parse_arguments():
     '-ch',
     dest='channels',
     type=int,
-    default=32,
+    default=48,
     help='channel multiplier in G and D',
+  )
+  p.add_argument(
+    '--debug',
+    action='store_true',
+    help='run the model in single-gpu mode for faster debugging',
   )
   return p.parse_args()
 
