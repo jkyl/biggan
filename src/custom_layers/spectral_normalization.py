@@ -9,7 +9,7 @@ from tensorflow.keras.layers import Conv2D, Dense
 from tensorflow.python.keras.engine import InputSpec
 from tensorflow.python.keras.utils.generic_utils import get_custom_objects
 
-class ConvSN2D(Conv2D):
+class SpectralConv2D(Conv2D):
   def build(self, input_shape):
     input_shape = input_shape.as_list()
     if self.data_format == 'channels_first':
@@ -88,7 +88,7 @@ class ConvSN2D(Conv2D):
       return self.activation(outputs)
     return outputs
 
-class DenseSN(Dense):
+class SpectralDense(Dense):
   def build(self, input_shape):
     input_shape = input_shape.as_list()
     assert len(input_shape) >= 2
@@ -152,4 +152,7 @@ class DenseSN(Dense):
       output = self.activation(output)
     return output
 
-get_custom_objects().update({'ConvSN2D': ConvSN2D, 'DenseSN': DenseSN})
+get_custom_objects().update({
+  'SpectralConv2D': SpectralConv2D,
+  'SpectralDense': SpectralDense,
+})
