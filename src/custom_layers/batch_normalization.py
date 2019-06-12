@@ -65,12 +65,17 @@ class HyperBatchNorm(tf.keras.layers.Layer):
 
   def call(self, inputs, training=None):
     x, z = inputs
-    ctx = tf.distribute.get_replica_context()
-    n = ctx.num_replicas_in_sync
-    mean, mean_sq = ctx.all_reduce(
-      tf.distribute.ReduceOp.SUM,
-      [tf.reduce_mean(x, axis=self.axes, keepdims=True) / n,
-       tf.reduce_mean(x**2, axis=self.axes, keepdims=True) / n])
+    mean, mean_sq = [tf.reduce_mean(
+      t, axis=self.axes, keepdims=True)
+      for t in (x, x**2)]
+    try:
+      ctx = tf.distribute.get_replica_context()
+      mean, mean_sq = ctx.all_reduce(
+        tf.distribute.ReduceOp.SUM, [
+          t / ctx.num_replicas_in_sync
+          for t in (mean, mean_sq)])
+    except AttributeError:
+      pass
     variance = mean_sq - mean ** 2
     reciprocal = tf.math.rsqrt(variance + self.epsilon)
     if self.scale:
