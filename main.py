@@ -20,10 +20,23 @@ def main(args):
   '''Trains a BigGAN-deep on a preprocessed image dataset
   '''
   def hinge_loss(logits_real, logits_fake):
+    '''Represents the "hinge" GAN objective given
+    discriminator outputs `logits_real` and `logits_fake`.
+
+    Cf. https://arxiv.org/pdf/1802.05957.pdf,
+    equations 16 and 17
+    '''
     L_G = -tf.reduce_sum(logits_fake)
     L_D = tf.reduce_sum(tf.nn.relu(1. - logits_real))\
         + tf.reduce_sum(tf.nn.relu(1. + logits_fake))
     return [l * (1. / args.batch_size) for l in (L_G, L_D)]
+
+  def minimize(loss, weights, optimizer):
+    '''Graph-mode minimization without gradient tape
+    or eager function tracing, similar to TF-1.X
+    '''
+    return optimizer.apply_gradients(zip(
+      optimizer.get_gradients(loss, weights), weights))
 
   def model_fn(features, mode):
     '''Constructs an EstimatorSpec encompassing the GAN
@@ -34,10 +47,9 @@ def main(args):
     D = Discriminator(args.channels)
     G.summary(); D.summary()
 
-    # sample latent vector `z` from max(N(0, 1), 0)
+    # sample latent vector `z` from N(0, 1)
     z = tf.random.normal(dtype=tf.float32,
       shape=(features.shape[0], G.input_shape[-1]))
-    z = tf.maximum(z, tf.zeros_like(z))
 
     # make predictions
     predictions = G(z)
@@ -48,13 +60,8 @@ def main(args):
     L_G, L_D = hinge_loss(logits_real, logits_fake)
 
     # dual Adam optimizers
-    G_adam = tf.optimizers.Adam(1e-4, 0., 0.9)
-    D_adam = tf.optimizers.Adam(4e-4, 0., 0.9)
-
-    # graph-mode `minimize`
-    def minimize(loss, weights, optimizer):
-      return optimizer.apply_gradients(zip(
-        optimizer.get_gradients(loss, weights), weights))
+    G_adam = tf.optimizers.Adam(1e-4, 0., 0.999)
+    D_adam = tf.optimizers.Adam(4e-4, 0., 0.999)
 
     # group the generator and discriminator updates
     train_op = tf.group(
@@ -122,7 +129,7 @@ def parse_arguments():
   p.add_argument(
     '--debug',
     action='store_true',
-    help='run the model in single-gpu mode for faster debugging',
+    help=argparse.SUPPRESS,
   )
   return p.parse_args()
 

@@ -41,25 +41,26 @@ def TakeChannels(output_dim):
     return input_shape[:-1] + (output_dim,)
   return tf.keras.layers.Lambda(call, output_shape=output_shape)
 
-def Conv2D(filters, kernel_size, use_bias=True):
+def Conv2D(filters, kernel_size, use_bias=True,
+           initializer='orthogonal'):
   '''Spectrally-normalized Conv2D layer with
   orthogonal initialization and "same" padding
   '''
   return SpectralConv2D(
     filters=filters,
     kernel_size=kernel_size,
-    kernel_initializer='orthogonal',
+    kernel_initializer=initializer,
     use_bias=use_bias,
     padding='same')
 
-def Dense(units, use_bias=True):
+def Dense(units, use_bias=True, initializer='orthogonal'):
   '''Spectrally-normalized Dense layer with
   orthogonal initialization
   '''
   return SpectralDense(
     units=units,
     use_bias=use_bias,
-    kernel_initializer='orthogonal')
+    kernel_initializer=initializer)
 
 @_module
 def GBlock(x, z, output_dim, up=False):
@@ -118,7 +119,7 @@ def DBlock(x, output_dim, down=False):
     x0 = AveragePooling2D()(x0)
   if input_dim < output_dim:
     extra = output_dim - input_dim
-    x0_extra = Conv2D(extra, 1)(x0)
+    x0_extra = Conv2D(extra, 1, use_bias=False)(x0)
     x0 = Concatenate()([x0, x0_extra])
   elif input_dim > output_dim:
     raise ValueError
@@ -146,7 +147,7 @@ def Attention(x):
   y = Dot((2, 1))([attn, h])
   y = Reshape((height, width, channels // 2))(y)
   y = Conv2D(channels, 1)(y)
-  return Add()([x, y])
+  return y
 
 def Generator(ch):
   '''Cf. https://arxiv.org/pdf/1809.11096.pdf,

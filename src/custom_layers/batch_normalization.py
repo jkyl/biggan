@@ -5,7 +5,9 @@ from __future__ import division
 import tensorflow as tf
 
 class HyperBatchNorm(tf.keras.layers.Layer):
-  """Cross-replica batch normalization layer"""
+  '''Cross-replica batch norm layer with scale and
+  bias params modulated by auxilliary vector input
+  '''
   def __init__(
       self,
       center=True,
@@ -26,63 +28,72 @@ class HyperBatchNorm(tf.keras.layers.Layer):
   def build(self, input_shape):
     assert isinstance(input_shape, list), type(input_shape)
     assert len(input_shape) == 2, len(input_shape)
-    input_shape, z_shape = input_shape
-    dim = input_shape[self.axis]
+    x_shape, z_shape = input_shape
+    assert len(x_shape) == 4, x_shape
+    assert len(z_shape) == 2, z_shape
+    x_dim = x_shape[self.axis]
     z_dim = z_shape[-1]
-    if dim is None:
+    if x_dim is None:
       raise ValueError(
         'Axis ' + str(self.axis) + ' of '
         'input tensor should have a defined dimension '
         'but the layer received an input with shape ' +
-        str(input_shape) + '.'
+        str(x_dim) + '.'
       )
-    shape = (dim,)
     if self.scale:
       self.gamma = self.add_weight(
-        shape=shape,
+        shape=(x_dim,),
         name='gamma',
         initializer='ones',
       )
       self.z_gamma = self.add_weight(
-        shape=(z_dim, dim),
+        shape=(z_dim, x_dim),
         name='z_gamma',
         initializer='zeros',
       )
     if self.center:
       self.beta = self.add_weight(
-        shape=shape,
+        shape=(x_dim,),
         name='beta',
         initializer='zeros',
       )
       self.z_beta = self.add_weight(
-        shape=(z_dim, dim),
+        shape=(z_dim, x_dim),
         name='z_beta',
         initializer='zeros',
       )
-    self.axes = list(range(len(input_shape)))
+    self.axes = list(range(len(x_shape)))
     self.axes.pop(self.axis)
     self.built = True
 
   def call(self, inputs, training=None):
     x, z = inputs
     ctx = tf.distribute.get_replica_context()
-    n = ctx.num_replicas_in_sync
     mean, mean_sq = ctx.all_reduce(
       tf.distribute.ReduceOp.SUM,
-      [tf.reduce_mean(x, axis=self.axes, keepdims=True) / n,
-       tf.reduce_mean(x**2, axis=self.axes, keepdims=True) / n])
+      [tf.reduce_mean(
+        t, axis=self.axes, keepdims=True
+      ) / ctx.num_replicas_in_sync
+      for t in (x, x**2)]
+    )
     variance = mean_sq - mean ** 2
-    reciprocal = tf.math.rsqrt(variance + self.epsilon)
     if self.scale:
       gamma = self.gamma + tf.matmul(z, self.z_gamma)
-      reciprocal *= gamma[:, tf.newaxis, tf.newaxis, :]
-    x *= reciprocal
-    offset = -mean * reciprocal
+      gamma = gamma[:, tf.newaxis, tf.newaxis]
+    else:
+      gamma = None
     if self.center:
       beta = self.beta + tf.matmul(z, self.z_beta)
-      offset += beta[:, tf.newaxis, tf.newaxis, :]
-    x += offset
-    return x
+      beta = beta[:, tf.newaxis, tf.newaxis]
+    else:
+      beta = None
+    return tf.nn.batch_normalization(
+      x,
+      mean,
+      variance,
+      beta,
+      gamma,
+      self.epsilon)
 
   def compute_output_shape(self, input_shape):
     return input_shape[0]
