@@ -6,7 +6,7 @@ import tensorflow as tf
 
 class HyperBatchNorm(tf.keras.layers.Layer):
   '''Cross-replica batch norm layer with scale and
-  bias params modulated by auxilliary vector input
+  bias params modulated by auxiliary vector input
   '''
   def __init__(
       self,
@@ -38,7 +38,7 @@ class HyperBatchNorm(tf.keras.layers.Layer):
         'Axis ' + str(self.axis) + ' of '
         'input tensor should have a defined dimension '
         'but the layer received an input with shape ' +
-        str(x_dim) + '.'
+        str(x_shape) + '.'
       )
     if self.scale:
       self.gamma = self.add_weight(
