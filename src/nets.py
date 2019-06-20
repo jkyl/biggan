@@ -6,7 +6,6 @@ import tensorflow as tf
 import functools as ft
 
 from tensorflow.keras.backend import int_shape
-from tensorflow.keras.layers import GlobalAveragePooling2D
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import UpSampling2D
 from tensorflow.keras.layers import Concatenate
@@ -43,6 +42,16 @@ def TakeChannels(output_dim):
     return x[..., :output_dim]
   def output_shape(input_shape):
     return input_shape[:-1] + (output_dim,)
+  return Lambda(call, output_shape=output_shape)
+
+def GlobalSumPooling2D():
+  '''Layer that sums over all spatial locations,
+  preserving batch and channels dimensions
+  '''
+  def call(x):
+    return tf.reduce_sum(x, axis=(1, 2))
+  def output_shape(input_shape):
+    return input_shape[0], input_shape[-1]
   return Lambda(call, output_shape=output_shape)
 
 def Conv2D(
@@ -245,7 +254,7 @@ def Discriminator(ch):
 
   # (4, 4, 16ch) -> (1,)
   x = Activation('relu')(x)
-  x = GlobalAveragePooling2D()(x)
+  x = GlobalSumPooling2D()(x)
   x = Dense(1)(x)
 
   # return keras model
