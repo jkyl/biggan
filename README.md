@@ -1,6 +1,7 @@
 # BigGAN-deep
 A [BigGAN](https://arxiv.org/abs/1809.11096) training algorithm for modest<sup>†</sup> hardware
 > †: tested on 4x Titan Xp running TensorFlow 2.0 beta
+
 ![demo](./grid.png)
 
 ## Setup
