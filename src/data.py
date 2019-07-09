@@ -11,6 +11,10 @@ import os
 
 from tensorflow.python.client import device_lib
 
+from joblib import Parallel
+from joblib import delayed
+from joblib import parallel_backend
+
 
 def get_gpus():
   '''Returns the identities of all available GPUs
@@ -53,13 +57,19 @@ def get_train_data(data_file, batch_size, n_threads=8, cache=True):
       .format(data_file, n_gpus))
   else:
     batch_size //= n_gpus
-  data = np.load(data_file, mmap_mode=None if cache else 'r')
-  n, h, w, c = data.shape
-  def gen():
+  archive = np.load(data_file, mmap_mode=None if cache else 'r')
+  features, labels = archive['features'], archive['labels']
+  n, h, w, c = features.shape
+  def random_sample_generator():
     while True:
-      yield data[np.random.randint(n, size=batch_size)]
-  ds = tf.data.Dataset.from_generator(gen, tf.uint8, (batch_size, h, w, c))
-  ds = ds.map(preprocess, n_threads)
+      batch_inds = np.random.randint(n, size=batch_size)
+      yield features[batch_inds], labels[batch_inds]
+  ds = tf.data.Dataset.from_generator(
+    random_sample_generator,
+    [tf.uint8, tf.int16],
+    [(batch_size, h, w, c), (batch_size,)])
+  ds = ds.map(lambda img, cls: (
+    preprocess(img), tf.cast(cls, tf.int32)), n_threads)
   ds = ds.prefetch(n_threads)
   return ds
 
@@ -68,12 +78,20 @@ def _glob_image_files(data_dir):
   JPEG and PNG files, and returns a list of their filenames
   '''
   files = []
+  labels = []
+  current_label = 0
   for depth in range(2):
     for ext in ('jpg', 'jpeg', 'png'):
       for case in (ext.lower(), ext.upper()):
         pattern = '/'.join('*' * (depth + 1)) + '.' + case
-        files += glob.glob(os.path.join(data_dir, pattern))
-  return files
+        new_files = glob.glob(os.path.join(data_dir, pattern))
+        if new_files:
+          files += new_files
+          labels += [current_label] * len(new_files)
+          current_label += 1
+  files, labels = np.array(files), np.array(labels, dtype=np.float16)
+  order = np.argsort(files)
+  return files[order], labels[order]
 
 class ImageTooSmall(Exception):
   pass
@@ -120,32 +138,31 @@ def _create_dataset(data_dir, output_npy, image_size=256):
   puts them all into a single numpy array, then writes to disk
   '''
   # get the image filenames
-  files = _glob_image_files(data_dir)
+  files, labels = _glob_image_files(data_dir)
+  files = files[:10000]
   num_files = len(files)
   if num_files == 0:
     raise IOError('no image files found in "{}"'.format(data_dir))
-  
-  # allocate an array in memory to store all the images
-  arr = np.zeros((num_files, image_size, image_size, 3), dtype=np.uint8)
-  i = 0
 
-  # try to process every file
-  for filename in files:
+  # memory-map an array to store all the images
+  output = np.lib.format.open_memmap(
+    filename=output_npy,
+    shape=(num_files, image_size, image_size, 3),
+    dtype=np.uint8,
+    mode='w+',
+  )
+  @delayed
+  def process_image(index):
     try:
-      arr[i] = _load_crop_resize_img(filename, image_size)
-    
-    # log non-fatal exceptions
-    except Exception as err:
-      if type(err) in (KeyboardInterrupt, SystemExit):
-        raise err
-      logging.error('{}: {} on file {}'
-        .format(type(err).__name__, err, filename))
+      output[index] = _load_crop_resize_img(files[index], image_size)
+    except ImageTooSmall as err:
+      output[index] = 0
+      logging.warning('{}: {} on file {}; skipping...'
+        .format(type(err).__name__, err, files[index]))
 
-    else: # increment the counter
-      i += 1
-
-  # save the array to .npy file
-  np.save(output_npy, arr[:i])
+  # process images in parallel
+  with parallel_backend('threading'):
+    Parallel(n_jobs=-1)(map(process_image, range(num_files)))
 
 def _parse_args():
   '''Returns a dictionary of arguments parsed from the command
@@ -156,7 +173,7 @@ def _parse_args():
   p.add_argument('data_dir', type=str,
     help='directory containing training PNGs and/or JPGs')
   p.add_argument('output_npy', type=str,
-    help='.npy file in which to save preprocessed images')
+    help='.npy file in which to save preprocessed images and labels')
   p.add_argument('-is', '--image_size', type=int, default=256,
     help='size of downsampled images')
   return vars(p.parse_args())
