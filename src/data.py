@@ -4,17 +4,15 @@ from __future__ import division
 
 import tensorflow as tf
 import numpy as np
+import threading
 import argparse
 import logging
 import glob
+import copy
 import os
 
 from tensorflow.python.client import device_lib
-
-from joblib import Parallel
-from joblib import delayed
-from joblib import parallel_backend
-
+from joblib import Parallel, delayed
 
 def get_gpus():
   '''Returns the identities of all available GPUs
@@ -89,15 +87,13 @@ def _glob_image_files(data_dir):
           files += new_files
           labels += [current_label] * len(new_files)
           current_label += 1
-  files, labels = np.array(files), np.array(labels, dtype=np.float16)
-  order = np.argsort(files)
-  return files[order], labels[order]
+  return files, labels
 
 class ImageTooSmall(Exception):
   pass
 
 def _load_crop_resize_img(filename, image_size):
-  '''Loads an image from disk, crops into a square along 
+  '''Loads an image from disk, crops into a square along
   its major axis, then downsamples to the given size
   '''
   # lazily import opencv for ease of cloud training
@@ -139,30 +135,43 @@ def _create_dataset(data_dir, output_npy, image_size=256):
   '''
   # get the image filenames
   files, labels = _glob_image_files(data_dir)
-  files = files[:10000]
   num_files = len(files)
   if num_files == 0:
     raise IOError('no image files found in "{}"'.format(data_dir))
 
   # memory-map an array to store all the images
   output = np.lib.format.open_memmap(
-    filename=output_npy,
-    shape=(num_files, image_size, image_size, 3),
-    dtype=np.uint8,
-    mode='w+',
+      filename=output_npy,
+      shape=(num_files, image_size, image_size, 3),
+      dtype=np.uint8,
+      mode='w+',
   )
+  mutable_target = [0]
+  lock = threading.Lock()
+
   @delayed
-  def process_image(index):
+  def process(index, target=mutable_target):
     try:
-      output[index] = _load_crop_resize_img(files[index], image_size)
+      img = _load_crop_resize_img(files[index], image_size)
     except ImageTooSmall as err:
-      output[index] = 0
       logging.warning('{}: {} on file {}; skipping...'
         .format(type(err).__name__, err, files[index]))
+    else:
+      with lock: # reserve the output index
+        reservation = copy.copy(target[0])
+        target[0] += 1
+      output[reservation] = img
 
-  # process images in parallel
-  with parallel_backend('threading'):
-    Parallel(n_jobs=-1)(map(process_image, range(num_files)))
+  Parallel(n_jobs=-1, prefer='threads')(map(process, range(num_files)))
+
+  # rewrite the header and truncate the file to exclude unused space
+  output.flush()
+  np.lib.format.open_memmap(
+    filename=output_npy,
+    shape=(mutable_target[0],) + output.shape[1:],
+    dtype=np.uint8,
+    mode='r+',
+  ).flush()
 
 def _parse_args():
   '''Returns a dictionary of arguments parsed from the command
@@ -183,4 +192,3 @@ if __name__ == '__main__':
     format='%(levelname)s:%(message)s', 
     level=logging.DEBUG)
   _create_dataset(**_parse_args())
-
