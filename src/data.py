@@ -4,11 +4,14 @@ from __future__ import division
 
 import tensorflow as tf
 import numpy as np
+import contextlib
 import threading
+import tempfile
 import argparse
 import logging
 import glob
 import copy
+import sys
 import os
 
 from tensorflow.python.client import device_lib
@@ -128,69 +131,96 @@ def _load_crop_resize_img(filename, image_size):
     (image_size, image_size),
     interpolation=cv2.INTER_AREA)
 
-def resize_npy_file(filename, new_shape, dtype=np.uint8):
+def resize_npy_file(memmap, new_shape):
   '''Rewrite the header and truncate a .npy file to the desired shape
   '''
-  dtype = np.dtype(dtype)
-  with open(np.compat.os_fspath(filename), 'rb+') as fp:
+  memmap.flush()
+  dtype = np.dtype(memmap.dtype)
+  with open(np.compat.os_fspath(memmap.filename), 'rb+') as fp:
     np.lib.format._write_array_header(fp, dict(
       descr=np.lib.format.dtype_to_descr(dtype),
       fortran_order=False,
       shape=new_shape,
     ))
     offset=fp.tell()
-  np.memmap(
-    filename,
+  output = np.memmap(
+    memmap.filename,
     dtype=dtype,
     shape=new_shape,
     order='C',
     mode='r+',
     offset=offset,
-  ).flush()
+  )
+  output.flush()
+  return output
 
-def _create_dataset(data_dir, output_npy, image_size=256):
+@contextlib.contextmanager
+def temporary_file():
+  os_handle, filename = tempfile.mkstemp()
+  try:
+    yield filename
+  finally:
+    os.remove(filename)
+
+def _create_dataset(data_dir, output_npz, image_size=256):
   '''Loads PNG and JPEG image files within possibly nested 
   directories, crops them, downsamples them to the target size,
   puts them all into a single numpy array, then writes to disk
   '''
+  assert sys.version_info >= (3, 6) # simplifies writing to zipfiles
+
   # get the image filenames
   files, labels = _glob_image_files(data_dir)
   num_files = len(files)
   if num_files == 0:
     raise IOError('no image files found in "{}"'.format(data_dir))
 
-  # memory-map an array to store all the images
-  output = np.lib.format.open_memmap(
-      filename=output_npy,
+  # manage deletion of temporary file
+  with temporary_file() as filename:
+
+    # memory-map an array to store all the images
+    output = np.lib.format.open_memmap(
+      filename=filename,
       shape=(num_files, image_size, image_size, 3),
       dtype=np.uint8,
       mode='w+',
-  )
-  # this variable counts the number of reserved indices in the output
-  mutable_target = [0]
+    )
+    # this variable counts the number of reserved indices in the output
+    mutable_target = [0]
 
-  # within the lock context, access by threads is exclusive
-  lock = threading.Lock()
+    # within the lock context, access by threads is exclusive
+    lock = threading.Lock()
 
-  @delayed
-  def process(index, target=mutable_target):
-    '''Loads, processes, and stores an image'''
-    try:
-      img = _load_crop_resize_img(files[index], image_size)
-    except ImageTooSmall as err:
-      logging.warning('{}: {} on file {}; skipping...'
-        .format(type(err).__name__, err, files[index]))
-    else:
-      with lock: # reserve the output index
-        reservation = copy.copy(target[0])
-        target[0] += 1
-      output[reservation] = img
-  
-  Parallel(prefer='threads')(map(process, range(num_files)))
+    @delayed
+    def process(index, target=mutable_target):
+      '''Loads, processes, and stores an image in the memmap
+      defined in the outer scope
+      '''
+      try:
+        img = _load_crop_resize_img(files[index], image_size)
+      except ImageTooSmall as err:
+        logging.warning('{}: {} on file {}; skipping...'
+          .format(type(err).__name__, err, files[index]))
+      else:
+        with lock: # reserve the output index
+          reservation = copy.copy(target[0])
+          target[0] += 1
+        output[reservation] = img
+    
+    # call the thread executor on the `process` function
+    Parallel(prefer='threads')(map(process, range(num_files)))
 
-  # rewrite the header and truncate the file to exclude unused space
-  output.flush()
-  resize_npy_file(output_npy, tuple(mutable_target) + output.shape[1:])
+    # rewrite the header and truncate the file to exclude unused space
+    output = resize_npy_file(output, tuple(mutable_target) + output.shape[1:])
+
+    # cast labels to int16 array
+    labels = np.array(labels, dtype=np.int16)
+
+    # write the images and labels to a .npz file
+    with contextlib.closing(np.lib.npyio.zipfile_factory(output_npz, mode='w')) as zipf:
+      for key, val in [('features', output), ('labels', labels)]:
+        with zipf.open(key+'.npy', 'w', force_zip64=True) as fid:
+          np.lib.format.write_array(fid, val)
 
 def _parse_args():
   '''Returns a dictionary of arguments parsed from the command
@@ -200,8 +230,8 @@ def _parse_args():
     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
   p.add_argument('data_dir', type=str,
     help='directory containing training PNGs and/or JPGs')
-  p.add_argument('output_npy', type=str,
-    help='.npy file in which to save preprocessed images and labels')
+  p.add_argument('output_npz', type=str,
+    help='.npz file in which to save preprocessed images and labels')
   p.add_argument('-is', '--image_size', type=int, default=256,
     help='size of downsampled images')
   return vars(p.parse_args())
