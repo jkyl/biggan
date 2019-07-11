@@ -128,6 +128,24 @@ def _load_crop_resize_img(filename, image_size):
     (image_size, image_size),
     interpolation=cv2.INTER_AREA)
 
+def resize_npy_file(filename, new_shape, dtype=np.uint8):
+  dtype = np.dtype(dtype)
+  with open(np.compat.os_fspath(filename), 'rb+') as fp:
+    np.lib.format._write_array_header(fp, dict(
+      descr=np.lib.format.dtype_to_descr(dtype),
+      fortran_order=False,
+      shape=new_shape,
+    ))
+    offset=fp.tell()
+  np.memmap(
+    filename,
+    dtype=dtype,
+    shape=new_shape,
+    order='C',
+    mode='r+',
+    offset=offset,
+  ).flush()
+
 def _create_dataset(data_dir, output_npy, image_size=256):
   '''Loads PNG and JPEG image files within possibly nested 
   directories, crops them, downsamples them to the target size,
@@ -148,7 +166,6 @@ def _create_dataset(data_dir, output_npy, image_size=256):
   )
   mutable_target = [0]
   lock = threading.Lock()
-
   @delayed
   def process(index, target=mutable_target):
     try:
@@ -161,17 +178,11 @@ def _create_dataset(data_dir, output_npy, image_size=256):
         reservation = copy.copy(target[0])
         target[0] += 1
       output[reservation] = img
-
-  Parallel(n_jobs=-1, prefer='threads')(map(process, range(num_files)))
+  Parallel()(map(process, range(num_files)))
 
   # rewrite the header and truncate the file to exclude unused space
   output.flush()
-  np.lib.format.open_memmap(
-    filename=output_npy,
-    shape=(mutable_target[0],) + output.shape[1:],
-    dtype=np.uint8,
-    mode='r+',
-  ).flush()
+  resize_npy_file(output_npy, tuple(mutable_target) + output.shape[1:])
 
 def _parse_args():
   '''Returns a dictionary of arguments parsed from the command
