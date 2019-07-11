@@ -129,6 +129,8 @@ def _load_crop_resize_img(filename, image_size):
     interpolation=cv2.INTER_AREA)
 
 def resize_npy_file(filename, new_shape, dtype=np.uint8):
+  '''Rewrite the header and truncate a .npy file to the desired shape
+  '''
   dtype = np.dtype(dtype)
   with open(np.compat.os_fspath(filename), 'rb+') as fp:
     np.lib.format._write_array_header(fp, dict(
@@ -164,10 +166,15 @@ def _create_dataset(data_dir, output_npy, image_size=256):
       dtype=np.uint8,
       mode='w+',
   )
+  # this variable counts the number of reserved indices in the output
   mutable_target = [0]
+
+  # within the lock context, access by threads is exclusive
   lock = threading.Lock()
+
   @delayed
   def process(index, target=mutable_target):
+    '''Loads, processes, and stores an image'''
     try:
       img = _load_crop_resize_img(files[index], image_size)
     except ImageTooSmall as err:
@@ -178,7 +185,8 @@ def _create_dataset(data_dir, output_npy, image_size=256):
         reservation = copy.copy(target[0])
         target[0] += 1
       output[reservation] = img
-  Parallel()(map(process, range(num_files)))
+  
+  Parallel(prefer='threads')(map(process, range(num_files)))
 
   # rewrite the header and truncate the file to exclude unused space
   output.flush()
