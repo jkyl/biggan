@@ -4,7 +4,6 @@ from __future__ import division
 
 import tensorflow as tf
 import numpy as np
-import contextlib
 import threading
 import tempfile
 import argparse
@@ -15,7 +14,18 @@ import sys
 import os
 
 from tensorflow.python.client import device_lib
-from joblib import Parallel, delayed
+
+from numpy.lib.format import open_memmap
+from numpy.lib.format import write_array
+from numpy.lib.format import _write_array_header
+from numpy.lib.npyio import zipfile_factory
+
+from contextlib import contextmanager
+from contextlib import closing
+
+from joblib import Parallel
+from joblib import delayed
+
 
 def get_gpus():
   '''Returns the identities of all available GPUs
@@ -75,21 +85,23 @@ def get_train_data(data_file, batch_size, n_threads=8, cache=True):
   return ds
 
 def _glob_image_files(data_dir): 
-  '''Searches the given directory and its subdirectories for 
+  '''Searches the given directory's subdirectories for
   JPEG and PNG files, and returns a list of their filenames
   '''
-  files = []
-  labels = []
-  current_label = 0
-  for depth in range(2):
-    for ext in ('jpg', 'jpeg', 'png'):
-      for case in (ext.lower(), ext.upper()):
-        pattern = '/'.join('*' * (depth + 1)) + '.' + case
-        new_files = glob.glob(os.path.join(data_dir, pattern))
-        if new_files:
-          files += new_files
-          labels += [current_label] * len(new_files)
-          current_label += 1
+  groups = [
+    sorted(glob.glob(os.path.join(subdir, '*.' + extension)))
+    for subdir in sorted(glob.glob(os.path.join(data_dir, '*/')))
+    for extension in ('jpg', 'jpeg', 'png')
+    for extension in (extension.upper(), extension.lower())
+  ]
+  files = [filename
+    for group in groups
+    for filename in group
+  ]
+  labels = [i
+    for i, group in enumerate(groups)
+    for _ in group
+  ]
   return files, labels
 
 class ImageTooSmall(Exception):
@@ -137,7 +149,7 @@ def resize_npy_file(memmap, new_shape):
   memmap.flush()
   dtype = np.dtype(memmap.dtype)
   with open(np.compat.os_fspath(memmap.filename), 'rb+') as fp:
-    np.lib.format._write_array_header(fp, dict(
+    _write_array_header(fp, dict(
       descr=np.lib.format.dtype_to_descr(dtype),
       fortran_order=False,
       shape=new_shape,
@@ -154,7 +166,7 @@ def resize_npy_file(memmap, new_shape):
   output.flush()
   return output
 
-@contextlib.contextmanager
+@contextmanager
 def temporary_file():
   os_handle, filename = tempfile.mkstemp()
   try:
@@ -170,19 +182,26 @@ def _create_dataset(data_dir, output_npz, image_size=256):
   assert sys.version_info >= (3, 6) # simplifies writing to zipfiles
 
   # get the image filenames
-  files, labels = _glob_image_files(data_dir)
+  files, classes = _glob_image_files(data_dir)
   num_files = len(files)
   if num_files == 0:
     raise IOError('no image files found in "{}"'.format(data_dir))
 
-  # manage deletion of temporary file
-  with temporary_file() as filename:
+  # manage deletion of temporary files
+  with temporary_file() as features_file, \
+       temporary_file() as labels_file:
 
-    # memory-map an array to store all the images
-    output = np.lib.format.open_memmap(
-      filename=filename,
+    # memory-map arrays to store all the images
+    features = open_memmap(
+      filename=features_file,
       shape=(num_files, image_size, image_size, 3),
       dtype=np.uint8,
+      mode='w+',
+    )
+    labels = open_memmap(
+      filename=labels_file,
+      shape=(num_files,),
+      dtype=np.int32,
       mode='w+',
     )
     # this variable counts the number of reserved indices in the output
@@ -205,22 +224,22 @@ def _create_dataset(data_dir, output_npz, image_size=256):
         with lock: # reserve the output index
           reservation = copy.copy(target[0])
           target[0] += 1
-        output[reservation] = img
+        features[reservation] = img
+        labels[reservation] = classes[index]
     
     # call the thread executor on the `process` function
     Parallel(prefer='threads')(map(process, range(num_files)))
 
-    # rewrite the header and truncate the file to exclude unused space
-    output = resize_npy_file(output, tuple(mutable_target) + output.shape[1:])
-
-    # cast labels to int16 array
-    labels = np.array(labels, dtype=np.int16)
+    # rewrite the headers and truncate the files to exclude unused space
+    features = resize_npy_file(features,
+      tuple(mutable_target) + features.shape[1:])
+    labels = resize_npy_file(labels, tuple(mutable_target))
 
     # write the images and labels to a .npz file
-    with contextlib.closing(np.lib.npyio.zipfile_factory(output_npz, mode='w')) as zipf:
-      for key, val in [('features', output), ('labels', labels)]:
-        with zipf.open(key+'.npy', 'w', force_zip64=True) as fid:
-          np.lib.format.write_array(fid, val)
+    with closing(zipfile_factory(output_npz, mode='w')) as zipf:
+      for key, val in [('features.npy', features), ('labels.npy', labels)]:
+        with zipf.open(key, 'w', force_zip64=True) as fid:
+          write_array(fid, val)
 
 def _parse_args():
   '''Returns a dictionary of arguments parsed from the command
