@@ -15,10 +15,12 @@ import os
 
 from tensorflow.python.client import device_lib
 
+from numpy.lib.format import _write_array_header
+from numpy.lib.format import dtype_to_descr
 from numpy.lib.format import open_memmap
 from numpy.lib.format import write_array
-from numpy.lib.format import _write_array_header
 from numpy.lib.npyio import zipfile_factory
+from numpy.compat import os_fspath
 
 from contextlib import contextmanager
 from contextlib import closing
@@ -88,11 +90,13 @@ def _glob_image_files(data_dir):
   '''Searches the given directory's subdirectories for
   JPEG and PNG files, and returns a list of their filenames
   '''
-  groups = [
-    sorted(glob.glob(os.path.join(subdir, '*.' + extension)))
-    for subdir in sorted(glob.glob(os.path.join(data_dir, '*/')))
-    for extension in ('jpg', 'jpeg', 'png')
-    for extension in (extension.upper(), extension.lower())
+  groups = [group 
+    for group in [
+      sorted(glob.glob(os.path.join(subdir, '*.' + extension)))
+      for subdir in sorted(glob.glob(os.path.join(data_dir, '*/')))
+      for extension in ('jpg', 'jpeg', 'png')
+      for extension in (extension.upper(), extension.lower())
+    ] if group
   ]
   files = [filename
     for group in groups
@@ -133,7 +137,7 @@ def _load_crop_resize_img(filename, image_size):
       start = stop = None
     else:
       start = (size[j] - size[min_ax]) // 2
-      stop = start + image_size
+      stop = start + size[min_ax]
     crop += (slice(start, stop, None),)
   crop += (slice(None, None, -1),)
 
@@ -148,9 +152,9 @@ def resize_npy_file(memmap, new_shape):
   '''
   memmap.flush()
   dtype = np.dtype(memmap.dtype)
-  with open(np.compat.os_fspath(memmap.filename), 'rb+') as fp:
+  with open(os_fspath(memmap.filename), 'rb+') as fp:
     _write_array_header(fp, dict(
-      descr=np.lib.format.dtype_to_descr(dtype),
+      descr=dtype_to_descr(dtype),
       fortran_order=False,
       shape=new_shape,
     ))
