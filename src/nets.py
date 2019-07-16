@@ -10,6 +10,7 @@ from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import UpSampling2D
 from tensorflow.keras.layers import Concatenate
 from tensorflow.keras.layers import Activation
+from tensorflow.keras.layers import Embedding
 from tensorflow.keras.layers import Reshape
 from tensorflow.keras.layers import Lambda
 from tensorflow.keras.layers import Add
@@ -172,13 +173,24 @@ def Attention(x, use_bias=True):
   y = Conv2D(channels, 1, use_bias=use_bias)(y)
   return Add()([x, y])
 
-def Generator(ch):
+def Generator(ch, num_classes=27):
   '''Cf. https://arxiv.org/pdf/1809.11096.pdf,
   table 8, left side
   '''
-  # input z-vector, project, and reshape
+  # input z-vector
   z = Input((128,))
-  x = Dense(4 * 4 * 16 * ch, use_bias=False)(z)
+  
+  # input class index
+  y = Input(())
+
+  # 128-dimensional class embedding
+  y_emb = Embedding(num_classes, 128)(y) 
+  
+  # concatenate with z
+  x = Concatenate()([z, y_emb])
+
+  # project and reshape
+  x = Dense(4 * 4 * 16 * ch, use_bias=False)(x)
   x = Reshape((4, 4, 16 * ch))(x)
 
   # (4, 4, 16ch) -> (8, 8, 16ch)
@@ -215,12 +227,15 @@ def Generator(ch):
   x = Activation('tanh')(x)
 
   # return keras model
-  return Model(z, x, name='Generator')
+  return Model([z, y], x, name='Generator')
 
-def Discriminator(ch):
+def Discriminator(ch, num_classes=27):
   '''Cf. https://arxiv.org/pdf/1809.11096.pdf,
   table 8, right side
   '''
+  y = Input(())
+  y_emb = Embedding(num_classes, 16 * ch)(y)
+
   # (256, 256, 3) -> (256, 256, 1ch)
   x = inp = Input((256, 256, 3))
   x = Conv2D(ch, 3)(x)
@@ -252,10 +267,12 @@ def Discriminator(ch):
   x = DBlock(x, 16 * ch, down=True)
   x = DBlock(x, 16 * ch)
 
-  # (4, 4, 16ch) -> (1,)
+  # (4, 4, 16ch) -> (16ch,)
   x = Activation('relu')(x)
   x = GlobalSumPooling2D()(x)
-  x = Dense(1)(x)
+  
+  # conditional logit
+  x = Add()([Dense(1)(x), Dot((1, 1))([x, y_emb])])
 
   # return keras model
-  return Model(inp, x, name='Discriminator')
+  return Model([inp, y], x, name='Discriminator')

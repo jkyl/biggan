@@ -79,10 +79,10 @@ def get_train_data(data_file, batch_size, n_threads=8, cache=True):
       yield features[batch_inds], labels[batch_inds]
   ds = tf.data.Dataset.from_generator(
     random_sample_generator,
-    [tf.uint8, tf.int16],
-    [(batch_size, h, w, c), (batch_size,)])
+    (tf.uint8, tf.int32),
+    ((batch_size, h, w, c), (batch_size,)))
   ds = ds.map(lambda img, cls: (
-    preprocess(img), tf.cast(cls, tf.int32)), n_threads)
+    preprocess(img), cls), n_threads)
   ds = ds.prefetch(n_threads)
   return ds
 
