@@ -38,7 +38,7 @@ def main(args):
     return optimizer.apply_gradients(zip(
       optimizer.get_gradients(loss, weights), weights))
 
-  def model_fn(features, mode):
+  def model_fn(features, labels, mode):
     '''Constructs an EstimatorSpec encompassing the GAN
     training algorithm given some image `features`
     '''
@@ -46,15 +46,15 @@ def main(args):
     G = Generator(args.channels)
     D = Discriminator(args.channels)
     G.summary(); D.summary()
-
+     
     # sample latent vector `z` from N(0, 1)
     z = tf.random.normal(dtype=tf.float32,
       shape=(features.shape[0], G.input_shape[-1]))
 
     # make predictions
-    predictions = G(z)
-    logits_real = D(features)
-    logits_fake = D(predictions)
+    predictions = G([z, labels])
+    logits_real = D([features, labels])
+    logits_fake = D([predictions, labels])
 
     # hinge loss function
     L_G, L_D = hinge_loss(logits_real, logits_fake)
