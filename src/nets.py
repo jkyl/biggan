@@ -187,41 +187,41 @@ def Generator(ch, num_classes=27):
   y_emb = Embedding(num_classes, 128)(y) 
   
   # concatenate with z
-  x = Concatenate()([z, y_emb])
+  c = Concatenate()([z, y_emb])
 
   # project and reshape
-  x = Dense(4 * 4 * 16 * ch, use_bias=False)(x)
+  x = Dense(4 * 4 * 16 * ch, use_bias=False)(c)
   x = Reshape((4, 4, 16 * ch))(x)
 
   # (4, 4, 16ch) -> (8, 8, 16ch)
-  x = GBlock(x, z, 16 * ch)
-  x = GBlock(x, z, 16 * ch, up=True)
+  x = GBlock(x, c, 16 * ch)
+  x = GBlock(x, c, 16 * ch, up=True)
 
   # (8, 8, 16ch) -> (16, 16, 8ch)
-  x = GBlock(x, z, 16 * ch)
-  x = GBlock(x, z, 8 * ch, up=True)
+  x = GBlock(x, c, 16 * ch)
+  x = GBlock(x, c, 8 * ch, up=True)
 
   # (16, 16, 8ch) -> (32, 32, 8ch)
-  x = GBlock(x, z, 8 * ch)
-  x = GBlock(x, z, 8 * ch, up=True)
+  x = GBlock(x, c, 8 * ch)
+  x = GBlock(x, c, 8 * ch, up=True)
 
   # (32, 32, 8ch) -> (64, 64, 4ch)
-  x = GBlock(x, z, 8 * ch)
-  x = GBlock(x, z, 4 * ch, up=True)
+  x = GBlock(x, c, 8 * ch)
+  x = GBlock(x, c, 4 * ch, up=True)
 
   # non-local @ (64, 64, 4ch)
   x = Attention(x, use_bias=False)
 
   # (64, 64, 4ch) -> (128, 128, 2ch)
-  x = GBlock(x, z, 4 * ch)
-  x = GBlock(x, z, 2 * ch, up=True)
+  x = GBlock(x, c, 4 * ch)
+  x = GBlock(x, c, 2 * ch, up=True)
 
   # (128, 128, 2ch) -> (256, 256, 1ch)
-  x = GBlock(x, z, 2 * ch)
-  x = GBlock(x, z, 1 * ch, up=True)
+  x = GBlock(x, c, 2 * ch)
+  x = GBlock(x, c, 1 * ch, up=True)
 
   # (256, 256, 1ch) -> (256, 256, 3)
-  x = HyperBatchNorm()([x, z])
+  x = HyperBatchNorm()([x, c])
   x = Activation('relu')(x)
   x = Conv2D(3, 3)(x)
   x = Activation('tanh')(x)
