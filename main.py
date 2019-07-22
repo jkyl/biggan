@@ -49,7 +49,7 @@ def main(args):
      
     # sample latent vector `z` from N(0, 1)
     z = tf.random.normal(dtype=tf.float32,
-      shape=(features.shape[0], G.input_shape[-1]))
+      shape=(features.shape[0], G.inputs[0].shape[-1]))
 
     # make predictions
     predictions = G([z, labels])
@@ -96,8 +96,7 @@ def main(args):
     get_train_data(
       args.data_file,
       args.batch_size),
-    steps=1000000,
-  )
+    steps=1000000)
 
 def parse_arguments():
   p = argparse.ArgumentParser(
