@@ -5,7 +5,7 @@ A [BigGAN](https://arxiv.org/abs/1809.11096) training algorithm for modest<sup>â
 ## Setup
 ```bash
 # download dependencies
-$ pip install tensorflow-gpu==2.0.0b0 opencv-python
+$ pip install tensorflow-gpu==2.0.0-beta1 opencv-python joblib
 
 # preprocess some image data offline
 $ python src/data.py /nested/path/to/images/ output.npy
