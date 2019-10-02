@@ -2,6 +2,7 @@ from __future__ import absolute_import
 from __future__ import print_function
 from __future__ import division
 
+import os; os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
 import tensorflow as tf
 import argparse
 import logging
