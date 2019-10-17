@@ -129,7 +129,7 @@ def parse_arguments():
     '-cl',
     dest='classes',
     type=int,
-    default=37,
+    default=27,
     help='number of image classes',
   )
   p.add_argument(
