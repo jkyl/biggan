@@ -16,7 +16,6 @@ from src.data import postprocess
 from tensorflow.compat.v1.train import get_global_step
 from tensorflow.compat.v1 import summary
 
-
 def main(args):
   '''Trains a BigGAN-deep on a preprocessed image dataset
   '''
@@ -44,8 +43,8 @@ def main(args):
     training algorithm given some image `features`
     '''
     # build the networks
-    G = Generator(args.channels)
-    D = Discriminator(args.channels)
+    G = Generator(args.channels, args.classes)
+    D = Discriminator(args.channels, args.classes)
     G.summary(); D.summary()
      
     # sample latent vector `z` from N(0, 1)
@@ -125,6 +124,13 @@ def parse_arguments():
     type=int,
     default=48,
     help='channel multiplier in G and D',
+  )
+  p.add_argument(
+    '-cl',
+    dest='classes',
+    type=int,
+    default=37,
+    help='number of image classes',
   )
   p.add_argument(
     '--debug',
