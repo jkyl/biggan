@@ -1,11 +1,9 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
 import tensorflow as tf
 import functools as ft
 
 from tensorflow.keras.backend import int_shape
+from tensorflow.keras.layers.experimental import SyncBatchNormalization
+from tensorflow.keras.layers import BatchNormalization as AsyncBatchNormalization
 from tensorflow.keras.layers import AveragePooling2D
 from tensorflow.keras.layers import UpSampling2D
 from tensorflow.keras.layers import Concatenate
@@ -18,7 +16,6 @@ from tensorflow.keras.layers import Dot
 from tensorflow.keras import Model
 from tensorflow.keras import Input
 
-from .custom_layers import HyperBatchNorm
 from .custom_layers import SpectralConv2D
 from .custom_layers import SpectralDense
 
@@ -59,8 +56,9 @@ def Conv2D(
     filters,
     kernel_size,
     use_bias=True,
-    kernel_initializer='orthogonal',
+    kernel_initializer="orthogonal",
     padding='same',
+    **kwargs,
   ):
   '''Spectrally-normalized Conv2D layer with
   orthogonal initialization and "same" padding
@@ -70,12 +68,14 @@ def Conv2D(
     kernel_size=kernel_size,
     kernel_initializer=kernel_initializer,
     use_bias=use_bias,
-    padding=padding)
+    padding=padding,
+    **kwargs)
 
 def Dense(
     units,
     use_bias=True,
-    kernel_initializer='orthogonal',
+    kernel_initializer="orthogonal",
+    **kwargs,
   ):
   '''Spectrally-normalized Dense layer with
   orthogonal initialization
@@ -83,7 +83,25 @@ def Dense(
   return SpectralDense(
     units=units,
     use_bias=use_bias,
-    kernel_initializer=kernel_initializer)
+    kernel_initializer=kernel_initializer,
+    **kwargs)
+
+@module
+def HyperBatchNorm(x, z):
+  if tf.distribute.get_replica_context() is None:
+    BatchNormalization = AsyncBatchNormalization
+  else:
+    BatchNormalization = SyncBatchNormalization
+  dim = int_shape(x)[-1]
+  x = BatchNormalization(scale=False, center=False)(x)
+  gamma = Dense(dim, bias_initializer="ones")(z)
+  beta = Dense(dim, bias_initializer="zeros")(z)
+  return Lambda(
+    lambda xgb: (xgb[0]
+    * xgb[1][:, None, None]
+    + xgb[2][:, None, None]),
+      output_shape=lambda s: s[0]
+  )([x, gamma, beta])
 
 @module
 def GBlock(x, z, output_dim, up=False):
@@ -96,18 +114,18 @@ def GBlock(x, z, output_dim, up=False):
   '''
   input_dim = int_shape(x)[-1]
   x0 = x
-  x = HyperBatchNorm()([x, z])
+  x = HyperBatchNorm(x, z)
   x = Activation('relu')(x)
   x = Conv2D(input_dim // 4, 1, use_bias=False)(x)
-  x = HyperBatchNorm()([x, z])
+  x = HyperBatchNorm(x, z)
   x = Activation('relu')(x)
   if up:
     x = UpSampling2D()(x)
   x = Conv2D(input_dim // 4, 3, use_bias=False)(x)
-  x = HyperBatchNorm()([x, z])
+  x = HyperBatchNorm(x, z)
   x = Activation('relu')(x)
   x = Conv2D(input_dim // 4, 3, use_bias=False)(x)
-  x = HyperBatchNorm()([x, z])
+  x = HyperBatchNorm(x, z)
   x = Activation('relu')(x)
   x = Conv2D(output_dim, 1, use_bias=False)(x)
   if input_dim > output_dim:
@@ -160,11 +178,10 @@ def Attention(x, use_bias=True):
   space = height * width
   f = Conv2D(channels // 8, 1, use_bias=False)(x)
   f = Reshape((space, channels // 8))(f)
-  g = AveragePooling2D()(x)
-  g = Conv2D(channels // 8, 1, use_bias=False)(g)
+  xhat = AveragePooling2D()(x)
+  g = Conv2D(channels // 8, 1, use_bias=False)(xhat)
   g = Reshape((space // 4, channels // 8))(g)
-  h = AveragePooling2D()(x)
-  h = Conv2D(channels // 2, 1, use_bias=False)(h)
+  h = Conv2D(channels // 2, 1, use_bias=False)(xhat)
   h = Reshape((space // 4, channels // 2))(h)
   attn = Dot((2, 2))([f, g])
   attn = Activation('softmax')(attn)
@@ -184,7 +201,7 @@ def Generator(ch, num_classes=27):
   y = Input(())
 
   # 128-dimensional class embedding
-  y_emb = Embedding(num_classes, 128)(y) 
+  y_emb = Embedding(num_classes, 128)(y)
   
   # concatenate with z
   c = Concatenate()([z, y_emb])
@@ -210,7 +227,7 @@ def Generator(ch, num_classes=27):
   x = GBlock(x, c, 4 * ch, up=True)
 
   # non-local @ (64, 64, 4ch)
-  x = Attention(x, use_bias=False)
+  # x = Attention(x, use_bias=False)
 
   # (64, 64, 4ch) -> (128, 128, 2ch)
   x = GBlock(x, c, 4 * ch)
@@ -221,7 +238,7 @@ def Generator(ch, num_classes=27):
   x = GBlock(x, c, 1 * ch, up=True)
 
   # (256, 256, 1ch) -> (256, 256, 3)
-  x = HyperBatchNorm()([x, c])
+  x = HyperBatchNorm(x, c)
   x = Activation('relu')(x)
   x = Conv2D(3, 3)(x)
   x = Activation('tanh')(x)
@@ -249,7 +266,7 @@ def Discriminator(ch, num_classes=27):
   x = DBlock(x, 4 * ch)
 
   # non-local @ (64, 64, 4ch)
-  x = Attention(x)
+  # x = Attention(x)
 
   # (64, 64, 4ch) -> (32, 32, 8ch)
   x = DBlock(x, 8 * ch, down=True)

@@ -1,14 +1,10 @@
-from __future__ import absolute_import
-from __future__ import print_function
-from __future__ import division
-
-import os; os.environ['TF_ENABLE_AUTO_MIXED_PRECISION'] = '1'
 import tensorflow as tf
 import argparse
 import logging
 
 from src.nets import Generator
 from src.nets import Discriminator
+
 from src.data import get_train_data
 from src.data import get_strategy
 from src.data import postprocess
@@ -16,73 +12,81 @@ from src.data import postprocess
 from tensorflow.compat.v1.train import get_global_step
 from tensorflow.compat.v1 import summary
 
-def main(args):
-  '''Trains a BigGAN-deep on a preprocessed image dataset
-  '''
+
+def main(args=None):
+  """
+  Trains a BigGAN-deep on a preprocessed image dataset.
+  """
+  if args is None:
+    args = parse_arguments()
+
   def hinge_loss(logits_real, logits_fake):
-    '''Represents the "hinge" GAN objective given
+    """
+    Represents the "hinge" GAN objective given
     discriminator outputs `logits_real` and `logits_fake`.
 
     Cf. https://arxiv.org/pdf/1802.05957.pdf,
-    equations 16 and 17
-    '''
+    equations 16 and 17.
+    """
     L_G = -tf.reduce_sum(logits_fake)
     L_D = tf.reduce_sum(tf.nn.relu(1. - logits_real))\
         + tf.reduce_sum(tf.nn.relu(1. + logits_fake))
     return [l * (1. / args.batch_size) for l in (L_G, L_D)]
 
   def minimize(loss, weights, optimizer):
-    '''Graph-mode minimization without gradient tape
-    or eager function tracing, similar to TF-1.X
-    '''
+    """
+    Graph-mode minimization without gradient tape
+    or eager function tracing, similar to TF-1.X.
+    """
     return optimizer.apply_gradients(zip(
       optimizer.get_gradients(loss, weights), weights))
 
   def model_fn(features, labels, mode):
-    '''Constructs an EstimatorSpec encompassing the GAN
-    training algorithm given some image `features`
-    '''
-    # build the networks
+    """
+    Constructs an EstimatorSpec encompassing the GAN
+    training algorithm given some image `features`.
+    """
+    # Build the networks.
     G = Generator(args.channels, args.classes)
     D = Discriminator(args.channels, args.classes)
     G.summary(); D.summary()
      
-    # sample latent vector `z` from N(0, 1)
+    # Sample latent vector `z` from N(0, 1).
     z = tf.random.normal(dtype=tf.float32,
       shape=(features.shape[0], G.inputs[0].shape[-1]))
 
-    # make predictions
-    predictions = G([z, labels])
-    logits_real = D([features, labels])
-    logits_fake = D([predictions, labels])
+    # Make predictions.
+    predictions = G([z, labels], training=True)
+    logits_real = D([features, labels], training=True)
+    logits_fake = D([predictions, labels], training=True)
 
-    # hinge loss function
+    # Hinge loss function.
     L_G, L_D = hinge_loss(logits_real, logits_fake)
 
-    # dual Adam optimizers
+    # Dual Adam optimizers.
     G_adam = tf.optimizers.Adam(1e-4, 0., 0.999)
     D_adam = tf.optimizers.Adam(4e-4, 0., 0.999)
 
-    # group the generator and discriminator updates
+    # Group the generator and discriminator updates.
     train_op = tf.group(
       minimize(L_G, G.trainable_weights, G_adam),
       minimize(L_D, D.trainable_weights, D_adam),
       get_global_step().assign_add(1),
     )
-    # create some tensorboard summaries
+    # Create some tensorboard summaries.
     summary.image('xhat', postprocess(predictions), 10)
     summary.image('x', postprocess(features), 10)
     summary.scalar('L_G', L_G)
     summary.scalar('L_D', L_D)
 
-    # return an EstimatorSpec
+    # Return an EstimatorSpec.
     return tf.estimator.EstimatorSpec(
       mode=mode, loss=L_D, train_op=train_op)
 
-  # enable log messages
+  # Enable log messages
   tf.get_logger().setLevel(logging.INFO)
 
-  # dispatch estimator training
+  # Dispatch estimator training
   tf.estimator.Estimator(
     model_fn=model_fn,
     model_dir=args.model_dir,
@@ -96,7 +100,7 @@ def main(args):
     get_train_data(
       args.data_file,
       args.batch_size),
-    steps=1000000)
+    steps=1000000 )
 
 def parse_arguments():
   p = argparse.ArgumentParser(
@@ -140,4 +144,4 @@ def parse_arguments():
   return p.parse_args()
 
 if __name__ == '__main__':
-  main(parse_arguments())
+  main()

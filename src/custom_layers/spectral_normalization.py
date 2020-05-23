@@ -6,72 +6,64 @@ import tensorflow as tf
 from tensorflow.keras import initializers
 from tensorflow.keras import backend as K
 from tensorflow.keras.layers import Conv2D, Dense
-from tensorflow.python.keras.engine import InputSpec
-from tensorflow.python.keras.utils.generic_utils import get_custom_objects
+from tensorflow.python.keras.utils import tf_utils
+
+def _spectrally_normalize_weight(
+    weight,
+    right_singular_vector,
+    training=None,
+  ):
+  if training is None:
+    training = K.learning_phase()
+
+  def _l2normalize(v):
+    return v / (K.sum(v ** 2) ** 0.5 + 1e-8)
+
+  def power_iteration(W, u):
+    _u = u
+    _v = _l2normalize(K.dot(_u, K.transpose(W)))
+    _u = _l2normalize(K.dot(_v, W))
+    return tf.stop_gradient(_u), tf.stop_gradient(_v)
+
+  W_shape = weight.shape.as_list()
+  W_reshaped = K.reshape(weight, [-1, W_shape[-1]])
+  _u, _v = power_iteration(W_reshaped, right_singular_vector)
+  sigma = K.dot(_v, W_reshaped)
+  sigma = K.dot(sigma, K.transpose(_u))
+  W_bar = W_reshaped / sigma
+
+  def assign_update():
+    with tf.control_dependencies([right_singular_vector.assign(_u)]):
+      return K.reshape(W_bar, W_shape)
+
+  W_bar = tf_utils.smart_cond(
+    training,
+    assign_update,
+    lambda: K.reshape(W_bar, W_shape))
+
+  return W_bar
+
+def _create_right_singular_vector(layer):
+  return layer.add_weight(
+    shape=tuple([1, layer.kernel.shape.as_list()[-1]]),
+    initializer=initializers.RandomNormal(0, 1),
+    name='sn',
+    trainable=False,
+    synchronization=tf.VariableSynchronization.ON_READ,
+    aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
+  )
 
 class SpectralConv2D(Conv2D):
   def build(self, input_shape):
-    input_shape = input_shape.as_list()
-    if self.data_format == 'channels_first':
-      channel_axis = 1
-    else:
-      channel_axis = -1
-    if input_shape[channel_axis] is None:
-      raise ValueError(
-        'The channel dimension of the inputs '
-        'should be defined. Found `None`.'
-      )
-    input_dim = input_shape[channel_axis]
-    kernel_shape = self.kernel_size + (input_dim, self.filters)
-    self.kernel = self.add_weight(
-      shape=kernel_shape,
-        initializer=self.kernel_initializer,
-        name='kernel',
-        regularizer=self.kernel_regularizer,
-        constraint=self.kernel_constraint,
-    )
-    if self.use_bias:
-      self.bias = self.add_weight(
-        shape=(self.filters,),
-        initializer=self.bias_initializer,
-        name='bias',
-        regularizer=self.bias_regularizer,
-        constraint=self.bias_constraint,
-      )
-    else:
-      self.bias = None
-    self.u = self.add_weight(
-      shape=tuple([1, self.kernel.shape.as_list()[-1]]),
-        initializer=initializers.RandomNormal(0, 1),
-        name='sn',
-        trainable=False,
-        aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
-      )
-    self.input_spec = InputSpec(
-      ndim=self.rank + 2,
-      axes={channel_axis: input_dim}
-    )
-    self.built = True
+    super().build(input_shape)
+    self.u = _create_right_singular_vector(self)
 
   def call(self, inputs, training=None):
-    def _l2normalize(v):
-      return v / (K.sum(v ** 2) ** 0.5 + 1e-4)
-    def power_iteration(W, u):
-      _u = u
-      _v = _l2normalize(K.dot(_u, K.transpose(W)))
-      _u = _l2normalize(K.dot(_v, W))
-      return _u, _v
-    W_shape = self.kernel.shape.as_list()
-    W_reshaped = K.reshape(self.kernel, [-1, W_shape[-1]])
-    _u, _v = power_iteration(W_reshaped, self.u)
-    sigma = K.dot(_v, W_reshaped)
-    sigma = K.dot(sigma, K.transpose(_u))
-    W_bar = W_reshaped / sigma
-    if training in {0, False}:
-      W_bar = K.reshape(W_bar, W_shape)
-    else:
-      with tf.control_dependencies([self.u.assign(_u)]):
-        W_bar = K.reshape(W_bar, W_shape)
+    W_bar = _spectrally_normalize_weight(
+      self.kernel,
+      self.u,
+      training=training,
+    )
     outputs = K.conv2d(
       inputs,
       W_bar,
@@ -90,69 +82,18 @@ class SpectralConv2D(Conv2D):
 
 class SpectralDense(Dense):
   def build(self, input_shape):
-    input_shape = input_shape.as_list()
-    assert len(input_shape) >= 2
-    input_dim = input_shape[-1]
-    self.kernel = self.add_weight(
-      shape=(input_dim, self.units),
-      initializer=self.kernel_initializer,
-      name='kernel',
-      dtype=K.floatx(),
-      regularizer=self.kernel_regularizer,
-      constraint=self.kernel_constraint,
-    )
-    if self.use_bias:
-      self.bias = self.add_weight(
-        shape=(self.units,),
-        initializer=self.bias_initializer,
-        name='bias',
-        dtype=K.floatx(),
-        regularizer=self.bias_regularizer,
-        constraint=self.bias_constraint,
-      )
-    else:
-      self.bias = None
-    self.u = self.add_weight(
-      shape=tuple([1, self.kernel.shape.as_list()[-1]]),
-      initializer=initializers.RandomNormal(0, 1),
-      name='sn',
-      dtype=K.floatx(),
-      trainable=False,
-      aggregation=tf.VariableAggregation.ONLY_FIRST_REPLICA,
-    )
-    self.input_spec = InputSpec(
-      min_ndim=2,
-      axes={-1: input_dim}
-    )
-    self.built = True
+    super().build(input_shape)
+    self.u = _create_right_singular_vector(self)
 
   def call(self, inputs, training=None):
-    def _l2normalize(v):
-      return v / (K.sum(v ** 2) ** 0.5 + 1e-4)
-    def power_iteration(W, u):
-      _u = u
-      _v = _l2normalize(K.dot(_u, K.transpose(W)))
-      _u = _l2normalize(K.dot(_v, W))
-      return _u, _v
-    W_shape = self.kernel.shape.as_list()
-    W_reshaped = K.reshape(self.kernel, [-1, W_shape[-1]])
-    _u, _v = power_iteration(W_reshaped, self.u)
-    sigma = K.dot(_v, W_reshaped)
-    sigma = K.dot(sigma, K.transpose(_u))
-    W_bar = W_reshaped / sigma
-    if training in {0, False}:
-      W_bar = K.reshape(W_bar, W_shape)
-    else:
-      with tf.control_dependencies([self.u.assign(_u)]):
-        W_bar = K.reshape(W_bar, W_shape)
+    W_bar = _spectrally_normalize_weight(
+      self.kernel,
+      self.u,
+      training=training,
+    )
     output = K.dot(inputs, W_bar)
     if self.use_bias:
       output = K.bias_add(output, self.bias, data_format='channels_last')
     if self.activation is not None:
       output = self.activation(output)
     return output
-
-get_custom_objects().update({
-  'SpectralConv2D': SpectralConv2D,
-  'SpectralDense': SpectralDense,
-})

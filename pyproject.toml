@@ -1,0 +1,21 @@
+[tool.poetry]
+name = "biggan-deep"
+version = "1.0.0"
+description = "A BigGAN training algorithm for modest hardware"
+authors = ["Jon Kyl"]
+license = "GPL-3.0"
+
+[tool.poetry.dependencies]
+python = "^3.6"
+tensorflow = "^2.2.0"
+opencv-python = "^4.2.0"
+joblib = "^0.15.1"
+numpy = "^1.17"
+
+[tool.poetry.dev-dependencies]
+pytest = "^5.4.2"
+ipython = "^7.14.0"
+
+[build-system]
+requires = ["poetry>=0.12"]
+build-backend = "poetry.masonry.api"
