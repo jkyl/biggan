@@ -11,7 +11,9 @@ poetry build && poetry install
 poetry run biggan prepare
 ```
 ## Train:
-```poetry run biggan train```
+```
+poetry run biggan train
+```
 ```
 usage: train [-h] [-bs BATCH_SIZE] [-ch CHANNELS] data_file model_dir
 
