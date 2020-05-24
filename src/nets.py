@@ -227,7 +227,7 @@ def Generator(ch, num_classes=27):
   x = GBlock(x, c, 4 * ch, up=True)
 
   # non-local @ (64, 64, 4ch)
-  # x = Attention(x, use_bias=False)
+  x = Attention(x, use_bias=False)
 
   # (64, 64, 4ch) -> (128, 128, 2ch)
   x = GBlock(x, c, 4 * ch)
@@ -266,7 +266,7 @@ def Discriminator(ch, num_classes=27):
   x = DBlock(x, 4 * ch)
 
   # non-local @ (64, 64, 4ch)
-  # x = Attention(x)
+  x = Attention(x)
 
   # (64, 64, 4ch) -> (32, 32, 8ch)
   x = DBlock(x, 8 * ch, down=True)
