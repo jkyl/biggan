@@ -20,7 +20,7 @@ class BigGAN(tf.keras.Model):
     """
     Implementation of 256x256x3 BigGAN in Keras.
     """
-    def __init__(self, channels: int = 64, num_classes: int = 27):
+    def __init__(self, channels: int, num_classes: int):
         """
         Initializes the BigGAN model.
         """
@@ -42,7 +42,6 @@ class BigGAN(tf.keras.Model):
         super().compile()
         self.G_adam = tf.optimizers.Adam(G_learning_rate, 0.0, 0.999)
         self.D_adam = tf.optimizers.Adam(D_learning_rate, 0.0, 0.999)
-        self.global_batch_size = global_batch_size
 
     def G_step(
         self,
@@ -100,7 +99,8 @@ class BigGAN(tf.keras.Model):
         local_batch_size = features.shape[0]
 
         # Resolve the global batch size, if applicable.
-        self.global_batch_size = self.global_batch_size or local_batch_size
+        if self.global_batch_size is None:
+            self.global_batch_size = local_batch_size
 
         # Sample a batch of latent vectors from the normal distribution.
         latent_z = tf.random.normal((local_batch_size, self.latent_dim))
@@ -135,9 +135,6 @@ class BigGAN(tf.keras.Model):
             image_file_writer.flush()
         return [
             tf.keras.callbacks.LambdaCallback(on_epoch_end=log_images),
-            tf.keras.callbacks.TensorBoard(log_dir=model_dir),
-            tf.keras.callbacks.ModelCheckpoint(
-                filepath=os.path.join(model_dir, "ckpt_{epoch}"),
-                save_weights_only=True
-            ),
+            tf.keras.callbacks.TensorBoard(log_dir=model_dir, write_graph=False),
+            tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join(model_dir, "ckpt_{epoch}")),
         ]

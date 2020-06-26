@@ -56,23 +56,32 @@ def postprocess(img):
     return tf.cast(tf.clip_by_value(img * 127.5 + 127.5, 0, 255), tf.uint8)
 
 
+def get_per_replica_batch_size(global_batch_size):
+    """
+    Given the desired global batch size, returns the per-replica
+    batch size based on the number of compute devices available.
+    """
+    n_gpus = len(get_gpus())
+    if not n_gpus:
+        pass
+    elif global_batch_size % n_gpus:
+        raise ValueError(
+            "batch size ({}) is not evenly divisible by number of GPUs ({})".format(
+                global_batch_size, n_gpus
+            )
+        )
+    else:
+        global_batch_size //= n_gpus
+    return global_batch_size
+
+
 def get_train_data(data_file, batch_size, n_threads=4, cache=True):
     """
     Creates a training data pipeline that samples batches
     from an array of pre-cropped image data in the provided
     .npy file, caching it in memory unless otherwise provided
     """
-    n_gpus = len(get_gpus())
-    if not n_gpus:
-        pass
-    elif batch_size % n_gpus:
-        raise ValueError(
-            "batch size ({}) is not evenly divisible by number of GPUs ({})".format(
-                data_file, n_gpus
-            )
-        )
-    else:
-        batch_size //= n_gpus
+
     archive = np.load(data_file, mmap_mode=None if cache else "r")
     features, labels = archive["features"], archive["labels"]
     n, h, w, c = features.shape
@@ -89,6 +98,9 @@ def get_train_data(data_file, batch_size, n_threads=4, cache=True):
     )
     ds = ds.map(lambda img, cls: (preprocess(img), cls), n_threads)
     ds = ds.prefetch(n_threads)
+
+    # Set the number of classes in the dataset as an attribute.
+    ds.num_classes = labels.max() + 1
     return ds
 
 
@@ -188,7 +200,7 @@ def create_dataset(data_dir, output_npz, image_size=256):
     directories, crops them, downsamples them to the target size,
     puts them all into a single numpy array, then writes to disk.
     """
-    assert sys.version_info >= (3, 6)  # simplifies writing to zipfiles
+    assert sys.version_info >= (3, 6) # simplifies writing to zipfiles
 
     # get the image filenames
     files, classes = glob_image_files(data_dir)

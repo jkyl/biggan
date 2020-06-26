@@ -1,16 +1,22 @@
 [tool.poetry]
-name = "biggan-deep"
+name = "biggan"
 version = "1.0.0"
 description = "A BigGAN training algorithm for modest hardware"
 authors = ["Jon Kyl"]
 license = "GPL-3.0-only"
 
+[tool.poetry.scripts]
+prepare = "scripts.prepare:main"
+train = "scripts.train:main"
+train-legacy = "scripts.train_legacy:main"
+
 [tool.poetry.dependencies]
 python = "^3.6"
-tensorflow = "^2.2.0"
+tensorflow = "^2.2"
 opencv-python = "^4.2.0"
 joblib = "^0.15.1"
 numpy = "^1.17"
+typeguard = "^2.9.1"
 
 [tool.poetry.dev-dependencies]
 pytest = "^5.4.2"

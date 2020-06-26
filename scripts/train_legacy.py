@@ -5,6 +5,7 @@ import logging
 from biggan import Generator
 from biggan import Discriminator
 
+from biggan.data import get_per_replica_batch_size
 from biggan.data import get_train_data
 from biggan.data import get_strategy
 from biggan.data import postprocess
@@ -84,7 +85,10 @@ def build_estimator_and_train(
             save_checkpoints_secs=3600,
             save_summary_steps=100,
         ),
-    ).train(lambda: get_train_data(data_file, batch_size), steps=1000000)
+    ).train(lambda: get_train_data(
+        data_file,
+        get_per_replica_batch_size(batch_size),
+    ), steps=1_000_000)
 
 
 def parse_arguments():
@@ -126,6 +130,10 @@ def parse_arguments():
         help=argparse.SUPPRESS,
     )
     return p.parse_args()
+
+
+def main(args=None):
+    build_estimator_and_train(**(args or parse_arguments()))
 
 
 if __name__ == "__main__":
