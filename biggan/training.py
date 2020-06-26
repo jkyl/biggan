@@ -103,3 +103,33 @@ def declarative_minimize(
     return optimizer.apply_gradients(
         zip(optimizer.get_gradients(loss, var_list), var_list)
     )
+
+
+def train_model(
+    *,
+    model: tf.keras.Model,
+    data: tf.data.Dataset,
+    model_dir: str,
+    num_steps: int,
+    log_every: int,
+    initial_step: int = 0,
+):
+    """
+    Train the built model on a dataset.
+    """
+    # Create the saving and logging callbacks.
+    callbacks = model.create_callbacks(model_dir)
+
+    # Set the global batch size for distributed training.
+    model.global_batch_size = data.element_spec[0].shape[0]
+
+    # Fit the model to the data, calling the callbacks every `log_every` steps.
+    model.fit(
+        data,
+        callbacks=callbacks,
+        epochs=num_steps//log_every,
+        steps_per_epoch=log_every,
+        initial_epoch=(initial_step or 0) // log_every,
+    )
+    # Return the trained model.
+    return model

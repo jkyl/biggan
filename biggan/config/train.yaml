@@ -1,0 +1,45 @@
+data_file:
+  help: path to the NPZ file containing images and class labels
+
+model_dir:
+  help: directory in which to save logs and checkpoints
+
+batch_size:
+  default: 24
+  help: number of images per training step
+
+channels:
+  default: 24
+  help: greatest common factor of the number of channels in all layers
+
+num_steps:
+  default: 1000000
+  help: total number of training iterations
+
+log_every:
+  default: 100
+  help: interval of iterations at which to write logs and checkpoints
+
+G_learning_rate:
+  default: 0.0001
+  help: learning rate of the generator
+
+G_beta_1:
+  default: 0.0
+  help: decay rate for the 1st moment estimates in the generator's optimizer
+
+G_beta_2:
+  default: 0.999
+  help: decay rate for the 2nd moment estimates in the generator's optimizer
+
+D_learning_rate:
+  default: 0.0004
+  help: learning rate of the discriminator
+
+D_beta_1:
+  default: 0.0
+  help: decay rate for the 1st moment estimates in the discriminator's optimizer
+
+D_beta_2:
+  default: 0.999
+  help: decay rate for the 2nd moment estimates in the discriminator's optimizer
