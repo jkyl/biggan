@@ -4,6 +4,8 @@ from typing import Callable, List, Tuple
 
 from typeguard import typechecked
 
+from .config import training as config
+
 
 @typechecked
 def discriminator_hinge_loss(
@@ -110,8 +112,8 @@ def train_model(
     model: tf.keras.Model,
     data: tf.data.Dataset,
     model_dir: str,
-    num_steps: int,
-    log_every: int,
+    num_steps: int = config.defaults.num_steps,
+    log_every: int = config.defaults.log_every,
     initial_step: int = 0,
 ):
     """

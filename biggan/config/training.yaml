@@ -1,0 +1,17 @@
+data_file:
+  help: path to the NPZ file containing images and class labels
+
+model_dir:
+  help: directory in which to save logs and checkpoints
+
+batch_size:
+  default: 24
+  help: number of images per training step
+
+num_steps:
+  default: 1000000
+  help: total number of training iterations
+
+log_every:
+  default: 100
+  help: interval of iterations at which to write logs and checkpoints

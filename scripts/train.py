@@ -1,3 +1,9 @@
+#!/usr/bin/env python3
+
+"""
+Trains a BigGAN.
+"""
+
 import tensorflow as tf
 import biggan
 
@@ -18,10 +24,10 @@ def run(
     D_beta_2: float,
 ):
     """
-    Build a model, build a dataset, then train the model on the dataset.
+    Builds a model, builds a dataset, then trains the model on the dataset.
     """
 
-    # Create the dataset object from the .npz file.
+    # Create the dataset object from the NPZ file.
     data = biggan.get_train_data(data_file=data_file, batch_size=batch_size)
 
     # Check if a checkpoint exists.
@@ -32,14 +38,15 @@ def run(
         channels=channels,
         num_classes=data.num_classes,
         checkpoint=checkpoint,
-        G_learning_rate=G_learning_rate,
-        G_beta_1=G_beta_1,
-        G_beta_2=G_beta_2,
-        D_learning_rate=D_learning_rate,
-        D_beta_1=D_beta_1,
-        D_beta_2=D_beta_2,
+        optimizer_params=dict(
+            G_learning_rate=G_learning_rate,
+            G_beta_1=G_beta_1,
+            G_beta_2=G_beta_2,
+            D_learning_rate=D_learning_rate,
+            D_beta_1=D_beta_1,
+            D_beta_2=D_beta_2,
+        ),
     )
-
     # Train the model on the dataset.
     return biggan.train_model(
         model=model,
@@ -51,7 +58,7 @@ def run(
     )
 
 
-def main(config=biggan.config.train):
+def main(config=biggan.config.training):
     return run(**vars(config.parse_args()))
 
 

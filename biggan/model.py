@@ -14,18 +14,21 @@ from .training import imperative_minimize
 from .data import postprocess
 from .data import get_strategy
 
+from .config import model as config
+
 
 def build_model(
     *,
-    channels: int,
-    num_classes: int,
-    checkpoint: str,
-    G_learning_rate: float,
-    G_beta_1: float,
-    G_beta_2: float,
-    D_learning_rate: float,
-    D_beta_1: float,
-    D_beta_2: float,
+    channels: int = config.defaults.channels,
+    num_classes: int, # Usually determined lazily from the dataset.
+    checkpoint: str = None,
+    G_learning_rate: float = config.defaults.G_learning_rate,
+    D_learning_rate: float = config.defaults.D_learning_rate,
+    G_beta_1: float = config.defaults.G_beta_1,
+    D_beta_1: float = config.defaults.D_beta_1,
+    G_beta_2: float = config.defaults.G_beta_2,
+    D_beta_2: float = config.defaults.D_beta_2,
+    global_batch_size: Union[int, None] = None,
 ):
     """
     Builds the model within a multi-device context.
@@ -34,11 +37,12 @@ def build_model(
         model = BigGAN(channels=channels, num_classes=num_classes)
         model.compile(
             G_learning_rate=G_learning_rate,
-            G_beta_1=G_beta_1,
-            G_beta_2=G_beta_2,
             D_learning_rate=D_learning_rate,
+            G_beta_1=G_beta_1,
             D_beta_1=D_beta_1,
+            G_beta_2=G_beta_2,
             D_beta_2=D_beta_2,
+            global_batch_size=global_batch_size,
         )
         if checkpoint is not None:
             model.load_weights(checkpoint)
@@ -49,7 +53,12 @@ class BigGAN(tf.keras.Model):
     """
     Implementation of 256x256x3 BigGAN in Keras.
     """
-    def __init__(self, channels: int, num_classes: int):
+    def __init__(
+        self,
+        *,
+        channels: int = config.get_default("channels"),
+        num_classes: int,
+    ):
         """
         Initializes the BigGAN model.
         """
@@ -61,12 +70,12 @@ class BigGAN(tf.keras.Model):
 
     def compile(
         self,
-        G_learning_rate: float,
-        G_beta_1: float,
-        G_beta_2: float,
-        D_learning_rate: float,
-        D_beta_1: float,
-        D_beta_2: float,
+        G_learning_rate: float = config.defaults.G_learning_rate,
+        D_learning_rate: float = config.defaults.D_learning_rate,
+        G_beta_1: float = config.defaults.G_beta_1,
+        D_beta_1: float = config.defaults.D_beta_1,
+        G_beta_2: float = config.defaults.G_beta_2,
+        D_beta_2: float = config.defaults.D_beta_2,
         global_batch_size: Union[int, None] = None,
     ):
         """
