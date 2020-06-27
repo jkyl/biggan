@@ -4,7 +4,7 @@ from typing import Callable, List, Tuple
 
 from typeguard import typechecked
 
-from .config import training as config
+from .config import default as config
 
 
 @typechecked

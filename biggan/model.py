@@ -14,7 +14,7 @@ from .training import imperative_minimize
 from .data import postprocess
 from .data import get_strategy
 
-from .config import model as config
+from .config import default as config
 
 
 def build_model(

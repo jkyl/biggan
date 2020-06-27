@@ -10,13 +10,21 @@ def _get_config(config_name: str):
         return yaml.load(f, Loader=yaml.Loader)
 
 
-def _get_config_parser(config_name: str, **kwargs):
+def _get_config_parser(config_name: str, parent: argparse.ArgumentParser = None):
     config = _get_config(config_name)
+    parents = [parent] if parent else []
     parser = argparse.ArgumentParser(
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
-        **kwargs,
+        parents=parents,
+        add_help=(parent is None),
+        conflict_handler="resolve",
     )
     for argument, argument_config in config.items():
+        if "help" not in argument_config and parent is not None:
+            matches = [a for a in parent._actions if argument == a.option_strings[0][2:]]
+            if matches:
+                argument_config["help"] = matches[0].help
+
         parser.add_argument(
             "--" + argument,
             **argument_config,
@@ -30,6 +38,7 @@ def _get_config_parser(config_name: str, **kwargs):
     return parser
 
 
-model = _get_config_parser("model", add_help=False)
-training = _get_config_parser("training", parents=[model])
-# inference = _get_config_parser("inference", parents=[model])
+def __getattr__(name):
+    if name == "default":
+        return _get_config_parser("default")
+    return _get_config_parser(name, parent=__getattr__("default"))

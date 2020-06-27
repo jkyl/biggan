@@ -8,47 +8,47 @@ import tensorflow as tf
 import biggan
 
 
+config = biggan.config.default
+
+
 def run(
     *,
-    channels: int,
     data_file: str,
     model_dir: str,
-    batch_size: int,
-    num_steps: int,
-    log_every: int,
-    G_learning_rate: float,
-    G_beta_1: float,
-    G_beta_2: float,
-    D_learning_rate: float,
-    D_beta_1: float,
-    D_beta_2: float,
+    channels: int = config.defaults.channels,
+    batch_size: int = config.defaults.batch_size,
+    num_steps: int = config.defaults.num_steps,
+    log_every: int = config.defaults.log_every,
+    G_learning_rate: float = config.defaults.G_learning_rate,
+    D_learning_rate: float = config.defaults.D_learning_rate,
+    G_beta_1: float = config.defaults.G_beta_1,
+    D_beta_1: float = config.defaults.D_beta_1,
+    G_beta_2: float = config.defaults.G_beta_2,
+    D_beta_2: float = config.defaults.D_beta_2,
 ):
     """
     Builds a model, builds a dataset, then trains the model on the dataset.
     """
 
     # Create the dataset object from the NPZ file.
-    data = biggan.get_train_data(data_file=data_file, batch_size=batch_size)
-
-    # Check if a checkpoint exists.
-    checkpoint = tf.train.latest_checkpoint(model_dir)
-
+    data = biggan.get_train_data(
+        data_file=data_file,
+        batch_size=batch_size,
+    )
     # Build the model.
     model = biggan.build_model(
         channels=channels,
         num_classes=data.num_classes,
-        checkpoint=checkpoint,
-        optimizer_params=dict(
-            G_learning_rate=G_learning_rate,
-            G_beta_1=G_beta_1,
-            G_beta_2=G_beta_2,
-            D_learning_rate=D_learning_rate,
-            D_beta_1=D_beta_1,
-            D_beta_2=D_beta_2,
-        ),
+        checkpoint=tf.train.latest_checkpoint(model_dir),
+        G_learning_rate=G_learning_rate,
+        D_learning_rate=D_learning_rate,
+        G_beta_1=G_beta_1,
+        D_beta_1=D_beta_1,
+        G_beta_2=G_beta_2,
+        D_beta_2=D_beta_2,
     )
     # Train the model on the dataset.
-    return biggan.train_model(
+    biggan.train_model(
         model=model,
         data=data,
         model_dir=model_dir,
@@ -58,7 +58,7 @@ def run(
     )
 
 
-def main(config=biggan.config.training):
+def main():
     return run(**vars(config.parse_args()))
 
 
