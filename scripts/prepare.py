@@ -12,12 +12,14 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "input_path",
+        "--input_path",
+        required=True,
         type=str,
         help="directory containing training PNGs and/or JPEGs, separated by class into subdirectories",
     )
     p.add_argument(
-        "output_path",
+        "--output_path",
+        required=True,
         type=str,
         help="path in which to save processed images and labels as gzipped tfrecords",
     )

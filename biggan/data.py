@@ -111,7 +111,7 @@ def serialize_to_tfrecords(
     *,
     input_path: str,
     output_path: str,
-    num_examples_per_shard: int,
+    num_examples_per_shard: int = 4096,
 ):
     """
     Serializes images in `input_path` along with their class labels
