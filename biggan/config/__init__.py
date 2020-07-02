@@ -20,25 +20,28 @@ def _get_config_parser(config_name: str, parent: argparse.ArgumentParser = None)
         conflict_handler="resolve",
     )
     for argument, argument_config in config.items():
-        if "help" not in argument_config and parent is not None:
+        if parent is not None:
             matches = [a for a in parent._actions if argument == a.option_strings[0][2:]]
-            if matches:
-                argument_config["help"] = matches[0].help
-
+            if len(matches) == 1:
+                match = matches[0]
+                for attr in ("help", "choices", "action"):
+                    if attr not in argument_config and hasattr(match, attr):
+                        argument_config[attr] = getattr(match, attr)
         parser.add_argument(
             "--" + argument,
-            **argument_config,
             required="default" not in argument_config,
+            **argument_config,
         )
     parser.defaults = argparse.Namespace(**{
         action.dest: parser.get_default(action.dest)
         for action in parser._actions
         if action.option_strings
     })
+    for action in parser._actions:
+        if action.type is None and action.dest in config and action.default is not None:
+            action.type = type(action.default)
     return parser
 
 
 def __getattr__(name):
-    if name == "default":
-        return _get_config_parser("default")
-    return _get_config_parser(name, parent=__getattr__("default"))
+    return _get_config_parser(name, parent=None if name == "base" else __getattr__("base"))

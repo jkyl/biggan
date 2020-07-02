@@ -1,7 +1,6 @@
-import logging
 import argparse
 
-from biggan.data import create_dataset
+from biggan import serialize_to_tfrecords
 
 
 def parse_args():
@@ -13,28 +12,20 @@ def parse_args():
         formatter_class=argparse.ArgumentDefaultsHelpFormatter,
     )
     p.add_argument(
-        "data_dir",
+        "input_path",
         type=str,
-        help="directory containing training PNGs and/or JPGs",
+        help="directory containing training PNGs and/or JPEGs, separated by class into subdirectories",
     )
     p.add_argument(
-        "output_npz",
+        "output_path",
         type=str,
-        help=".npz file in which to save processed images and labels",
-    )
-    p.add_argument(
-        "-is",
-        "--image_size",
-        type=int,
-        default=256,
-        help="size of downsampled images",
+        help="path in which to save processed images and labels as gzipped tfrecords",
     )
     return vars(p.parse_args())
 
 
 def main(args=None):
-    logging.basicConfig(format="%(levelname)s:%(message)s", level=logging.DEBUG)
-    create_dataset(**(args or parse_args()))
+    serialize_to_tfrecords(**(args or parse_args()))
 
 if __name__ == "__main__":
     main()

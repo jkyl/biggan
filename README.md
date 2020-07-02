@@ -1,5 +1,5 @@
 # biggan
-A [BigGAN](https://arxiv.org/abs/1809.11096) written in idiomatic Keras.
+[BigGAN](https://arxiv.org/abs/1809.11096) in idiomatic Keras.
 
 ### Setup
 ```

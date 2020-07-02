@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "biggan"
 version = "1.0.0"
-description = "A BigGAN training algorithm for modest hardware"
+description = "BigGAN in idiomatic Keras"
 authors = ["Jon Kyl"]
 license = "GPL-3.0-only"
 include = ["biggan/config/*.yaml"]
@@ -16,7 +16,6 @@ tensorflow = "^2.2"
 opencv-python = "^4.2.0"
 joblib = "^0.15.1"
 numpy = "^1.17"
-typeguard = "^2.9.1"
 pyyaml = "^5.3.1"
 
 [tool.poetry.dev-dependencies]

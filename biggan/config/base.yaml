@@ -1,16 +1,16 @@
-data_file:
-  help: path to the NPZ file containing images and class labels
+tfrecord_path:
+  help: path to the tfrecords containing images and class labels
 
-model_dir:
+model_path:
   help: directory in which to save logs and checkpoints
 
 batch_size:
   default: 24
   help: number of images per training step
 
-num_steps:
-  default: 1000000
-  help: total number of training iterations
+num_epochs:
+  default: 1000
+  help: number of passes through the dataset
 
 log_every:
   default: 100
@@ -43,3 +43,21 @@ D_beta_1:
 D_beta_2:
   default: 0.999
   help: decay rate for the 2nd moment estimates in the discriminator's optimizer
+
+image_size:
+  default: 256
+  choices: [256]
+  help: image sidelength in pixels
+
+do_cache:
+  default: false
+  action: store_true
+  help: cache the dataset in memory
+
+shuffle_buffer_size:
+  default: 4096
+  help: number of training examples to store in the shuffle buffer
+
+latent_dim:
+  default: 128
+  help: dimensionality of the latent space
