@@ -43,5 +43,4 @@ def _get_config_parser(config_name: str, parent: argparse.ArgumentParser = None)
     return parser
 
 
-def __getattr__(name):
-    return _get_config_parser(name, parent=None if name == "base" else __getattr__("base"))
+base = _get_config_parser("base")
