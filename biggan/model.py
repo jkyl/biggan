@@ -179,7 +179,7 @@ def get_strategy(use_tpu=cfg.defaults.use_tpu):
     if use_tpu:
         raise NotImplementedError("use_tpu=True")
     return tf.distribute.MirroredStrategy(devices=(
-        tf.config.list_physical_devices("GPU") or ["/CPU:0"]))
+        [d.name for d in tf.config.list_physical_devices("GPU")] or ["/CPU:0"]))
 
 
 def build_model(
