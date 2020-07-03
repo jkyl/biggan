@@ -61,3 +61,8 @@ shuffle_buffer_size:
 latent_dim:
   default: 128
   help: dimensionality of the latent space
+
+use_tpu:
+  default: false
+  action: store_true
+  help: whether to use a TPU as the compute device

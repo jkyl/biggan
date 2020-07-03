@@ -2,24 +2,8 @@ import tensorflow as tf
 import numpy as np
 import os
 
-from tensorflow.python.client import device_lib
 
 from .config import base as cfg
-
-
-def get_gpus():
-    """
-    Returns the identities of all available GPUs
-    """
-    return [d.name for d in device_lib.list_local_devices() if d.device_type == "GPU"]
-
-
-def get_strategy():
-    """
-    Returns a mirrored strategy over all available GPUs,
-    or falls back to CPU if no GPUs available
-    """
-    return tf.distribute.MirroredStrategy(devices=(get_gpus() or ["/CPU:0"]))
 
 
 def preprocess_image(img):
@@ -38,23 +22,6 @@ def postprocess_image(img):
     return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
 
-def get_per_replica_batch_size(global_batch_size):
-    """
-    Given the desired global batch size, returns the per-replica
-    batch size based on the number of GPUs available.
-    """
-    n_gpus = len(get_gpus())
-    if n_gpus == 0:
-        batch_size = global_batch_size
-    elif global_batch_size % n_gpus != 0:
-        raise ValueError(
-            f"batch size ({global_batch_size}) is not divisible by the number of GPUs ({n_gpus})"
-        )
-    else:
-        batch_size = global_batch_size // n_gpus
-    return batch_size
-
-
 def get_preprocessing_pipeline(data_path, image_size=cfg.defaults.image_size):
     """
     Streams resized images and their class labels from disk to a tf.data.Dataset.
@@ -71,7 +38,7 @@ def get_preprocessing_pipeline(data_path, image_size=cfg.defaults.image_size):
             for path in files]
         unique_classes = np.unique(classes)
         onehot_labels = [unique_classes == c for c in classes]
-        return [np.array(files), np.array(onehot_labels, dtype=np.float32)]
+        return np.array(files), np.array(onehot_labels, dtype=np.float32)
 
     def load(image_file):
         image_bytes = tf.io.read_file(image_file)
@@ -111,7 +78,7 @@ def serialize_to_tfrecords(
     *,
     input_path: str,
     output_path: str,
-    num_examples_per_shard: int = 4096,
+    num_examples_per_shard: int = 1024,
 ):
     """
     Serializes images in `input_path` along with their class labels

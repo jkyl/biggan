@@ -4,14 +4,10 @@ import os
 import tensorflow as tf
 import numpy as np
 
-from typing import List, Tuple, Dict, Union, Callable
+from typing import List, Tuple, Dict, Union
 
-from .architecture import Generator
-from .architecture import Discriminator
-
+from .architecture import Generator, Discriminator
 from .data import postprocess_image
-from .data import get_strategy
-
 from .config import base as cfg
 
 
@@ -170,15 +166,26 @@ class BigGAN(tf.keras.Model):
                     tf.summary.image(f"predictions/{index}", image[None], step=step)
         return [
             tf.keras.callbacks.LambdaCallback(on_batch_end=log_images),
-            tf.keras.callbacks.TensorBoard(log_dir=model_path, write_graph=True, update_freq=log_every),
+            tf.keras.callbacks.TensorBoard(log_dir=model_path, write_graph=False, update_freq=log_every),
             tf.keras.callbacks.ModelCheckpoint(filepath=os.path.join(model_path, "ckpt_{epoch}")),
         ]
+
+
+def get_strategy(use_tpu=cfg.defaults.use_tpu):
+    """
+    Returns a mirrored strategy over all available GPUs,
+    or falls back to CPU if no GPUs available
+    """
+    if use_tpu:
+        raise NotImplementedError("use_tpu=True")
+    return tf.distribute.MirroredStrategy(devices=(
+        tf.config.list_physical_devices("GPU") or ["/CPU:0"]))
 
 
 def build_model(
     *,
     channels: int = cfg.defaults.channels,
-    num_classes: int, # Usually determined lazily from the dataset.
+    num_classes: Union[int, callable], # Determined lazily from the dataset.
     latent_dim: int = cfg.defaults.latent_dim,
     checkpoint: str = None,
     G_learning_rate: float = cfg.defaults.G_learning_rate,
@@ -188,14 +195,15 @@ def build_model(
     G_beta_2: float = cfg.defaults.G_beta_2,
     D_beta_2: float = cfg.defaults.D_beta_2,
     global_batch_size: Union[int, None] = None,
+    use_tpu: bool = cfg.defaults.use_tpu,
 ):
     """
-    Builds the model within a multi-device context.
+    Builds the model within a distribution strategy context.
     """
-    with get_strategy().scope():
+    with get_strategy(use_tpu=use_tpu).scope():
         model = BigGAN(
             channels=channels,
-            num_classes=num_classes,
+            num_classes=(num_classes() if callable(num_classes) else num_classes),
             latent_dim=latent_dim,
         )
         model.compile(

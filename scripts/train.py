@@ -4,6 +4,9 @@
 Trains a BigGAN.
 """
 
+__author__ = "Jon Kyl"
+
+
 import tensorflow as tf
 import biggan
 
@@ -28,6 +31,7 @@ def run(
     shuffle_buffer_size: int = cfg.defaults.shuffle_buffer_size,
     do_cache: bool = cfg.defaults.do_cache,
     latent_dim: int = cfg.defaults.latent_dim,
+    use_tpu: bool = cfg.defaults.use_tpu,
     **unused_kwargs,
 ):
     """
@@ -47,7 +51,7 @@ def run(
     # Build the model.
     model = biggan.build_model(
         channels=channels,
-        num_classes=next(iter(data.take(1)))[1].shape[1],
+        num_classes=lambda: next(iter(data.take(1)))[1].shape[1],
         latent_dim=latent_dim,
         checkpoint=tf.train.latest_checkpoint(model_path),
         G_learning_rate=G_learning_rate,
@@ -56,6 +60,7 @@ def run(
         D_beta_1=D_beta_1,
         G_beta_2=G_beta_2,
         D_beta_2=D_beta_2,
+        use_tpu=use_tpu,
     )
     # Train the model on the dataset.
     biggan.train_model(
