@@ -17,7 +17,7 @@ batch_size:
   help: number of images per training step
 
 num_D_updates:
-  default: 1
+  default: 2
   help: number of discriminator updates per generator update
 
 momentum:

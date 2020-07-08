@@ -4,7 +4,7 @@ import os
 import tensorflow as tf
 
 from typing import List, Tuple, Dict, Union
-from contextlib import nullcontext, contextmanager
+from contextlib import nullcontext
 
 from .architecture import Generator, Discriminator
 from .data import postprocess_image
@@ -132,7 +132,7 @@ class BigGAN(tf.keras.Model):
         # Do the forward pass, recording gradients for the trainable parameters.
         with tf.GradientTape(persistent=True, watch_accessed_variables=False) as tape:
             tape.watch(self.D.trainable_weights + self.G.trainable_weights)
-            latent_vector = tf.maximum(0., tf.random.normal(shape=(labels.shape[0], self.latent_dim)))
+            latent_vector = tf.random.normal(shape=(labels.shape[0], self.latent_dim))
             predictions = self.G([latent_vector, labels], training=True)
             logits_fake = self.D([predictions, labels], training=True)
             logits_real = self.D([features, labels], training=True)
@@ -269,6 +269,7 @@ def train_model(
     model_path: str,
     num_epochs: int = cfg.defaults.num_epochs,
     log_every: int = cfg.defaults.log_every,
+    initial_epoch: int = 0,
 ):
     """
     Train the built model on a dataset.
@@ -280,7 +281,11 @@ def train_model(
     model.set_global_batch_size(dataset.element_spec[0].shape[0])
 
     # Fit the model to the data, calling the callbacks every `log_every` steps.
-    model.fit(dataset, callbacks=callbacks, epochs=num_epochs)
-
+    model.fit(
+        dataset,
+        callbacks=callbacks,
+        epochs=num_epochs,
+        initial_epoch=initial_epoch,
+    )
     # Return the trained model.
     return model

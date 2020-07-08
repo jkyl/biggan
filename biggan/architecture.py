@@ -73,8 +73,8 @@ def ConditionalBatchNormalization(
         BatchNorm = BatchNormalization
 
     x = BatchNorm(scale=False, center=False, epsilon=epsilon, momentum=momentum)(x)
-    gamma = Dense(x.shape[-1], bias_initializer="ones")(z)
-    beta = Dense(x.shape[-1], bias_initializer="zeros")(z)
+    gamma = Dense(x.shape[-1], use_bias=False)(z)
+    beta = Dense(x.shape[-1], use_bias=False)(z)
 
     def call(args):
         x, g, b = args
