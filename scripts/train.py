@@ -32,6 +32,8 @@ def run(
     do_cache: bool = cfg.defaults.do_cache,
     latent_dim: int = cfg.defaults.latent_dim,
     use_tpu: bool = cfg.defaults.use_tpu,
+    momentum: float = cfg.defaults.momentum,
+    num_D_updates: int = cfg.defaults.num_D_updates,
     **unused_kwargs,
 ):
     """
@@ -41,8 +43,8 @@ def run(
     # Delete the unused keyword arguments.
     del unused_kwargs
 
-    # Create the dataset object from the NPZ file.
-    data = biggan.get_tfrecord_dataset(
+    # Create a dataset object from tfrecord files.
+    dataset = biggan.get_tfrecord_dataset(
         tfrecord_path=tfrecord_path,
         batch_size=batch_size,
         shuffle_buffer_size=shuffle_buffer_size,
@@ -51,7 +53,7 @@ def run(
     # Build the model.
     model = biggan.build_model(
         channels=channels,
-        num_classes=lambda: next(iter(data.take(1)))[1].shape[1],
+        num_classes=lambda: next(iter(dataset.take(1)))[1].shape[1],
         latent_dim=latent_dim,
         checkpoint=tf.train.latest_checkpoint(model_path),
         G_learning_rate=G_learning_rate,
@@ -61,11 +63,13 @@ def run(
         G_beta_2=G_beta_2,
         D_beta_2=D_beta_2,
         use_tpu=use_tpu,
+        momentum=momentum,
+        num_D_updates=num_D_updates,
     )
     # Train the model on the dataset.
     biggan.train_model(
         model=model,
-        data=data,
+        dataset=dataset,
         model_path=model_path,
         num_epochs=num_epochs,
         log_every=log_every,

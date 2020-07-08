@@ -4,24 +4,28 @@ tfrecord_path:
 model_path:
   help: directory in which to save logs and checkpoints
 
-batch_size:
-  default: 24
-  help: number of images per training step
-
-num_epochs:
-  default: 1000
-  help: number of passes through the dataset
-
-log_every:
-  default: 100
-  help: interval of iterations at which to write logs and checkpoints
-
 channels:
-  default: 24
+  default: 32
   help: greatest common factor of the number of channels in all layers
 
+latent_dim:
+  default: 128
+  help: dimensionality of the latent space
+
+batch_size:
+  default: 16
+  help: number of images per training step
+
+num_D_updates:
+  default: 1
+  help: number of discriminator updates per generator update
+
+momentum:
+  default: 0.99
+  help: momentum for batch norm running statistics
+
 G_learning_rate:
-  default: 0.0001
+  default: 0.000025
   help: learning rate of the generator
 
 G_beta_1:
@@ -33,7 +37,7 @@ G_beta_2:
   help: decay rate for the 2nd moment estimates in the generator's optimizer
 
 D_learning_rate:
-  default: 0.0004
+  default: 0.000025
   help: learning rate of the discriminator
 
 D_beta_1:
@@ -49,6 +53,14 @@ image_size:
   choices: [256]
   help: image sidelength in pixels
 
+num_epochs:
+  default: 1000
+  help: number of passes through the dataset
+
+log_every:
+  default: 100
+  help: interval of iterations at which to write logs and checkpoints
+
 do_cache:
   default: false
   action: store_true
@@ -57,10 +69,6 @@ do_cache:
 shuffle_buffer_size:
   default: 4096
   help: number of training examples to store in the shuffle buffer
-
-latent_dim:
-  default: 128
-  help: dimensionality of the latent space
 
 use_tpu:
   default: false

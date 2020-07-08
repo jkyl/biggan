@@ -19,6 +19,8 @@ from tensorflow.keras import Model
 from tensorflow.keras import Input
 from tensorflow.python.keras.utils import tf_utils
 
+from functools import partial
+
 from typing import Union
 
 from .config import base as cfg
@@ -52,30 +54,36 @@ def GlobalSumPooling2D():
     return Lambda(call, output_shape=output_shape)
 
 
-def HyperBatchNorm(
+def ConditionalBatchNormalization(
     x: tf.Tensor,
     z: tf.Tensor,
     *,
     epsilon: Union[float, tf.Tensor] = 1e-6,
-    momentum: Union[float, tf.Tensor] = 0.9,
+    momentum: Union[float, tf.Tensor] = cfg.defaults.momentum,
 ):
     """
     Builds and calls a cross-replica conditional
     batch normalization layer on an image tensor
     `x` and conditioning vector `z`.
     """
-    dim = K.int_shape(x)[-1]
-    if tf.distribute.get_replica_context() is None:
-        BN = BatchNormalization
+
+    if tf.distribute.in_cross_replica_context():
+        BatchNorm = SyncBatchNormalization
     else:
-        BN = SyncBatchNormalization
-    x = BN(scale=False, center=False, epsilon=epsilon, momentum=momentum)(x)
-    gamma = Dense(dim, use_bias=False)(z)
-    beta = Dense(dim, use_bias=False)(z)
-    return Lambda(
-        lambda xgb: xgb[0] * (1 + xgb[1][:, None, None]) + xgb[2][:, None, None],
-        output_shape=lambda s: s[0],
-    )([x, gamma, beta])
+        BatchNorm = BatchNormalization
+
+    x = BatchNorm(scale=False, center=False, epsilon=epsilon, momentum=momentum)(x)
+    gamma = Dense(x.shape[-1], bias_initializer="ones")(z)
+    beta = Dense(x.shape[-1], bias_initializer="zeros")(z)
+
+    def call(args):
+        x, g, b = args
+        return x * (1 + g)[:, None, None] + b[:, None, None]
+
+    def output_shape(input_shapes):
+        return input_shapes[0]
+
+    return Lambda(call, output_shape=output_shape)([x, gamma, beta])
 
 
 def spectrally_normalize_weight(
@@ -225,7 +233,14 @@ class SpectralDense(Dense):
         return output
 
 
-def GBlock(x, z, output_dim, up=False):
+def GBlock(
+    x: tf.Tensor,
+    z: tf.Tensor,
+    output_dim: int,
+    *,
+    momentum: float = cfg.defaults.momentum,
+    up: bool = False
+):
     """
     Constructs and calls a bottlenecked residual block
     with conditional batch normalization and optional
@@ -234,20 +249,21 @@ def GBlock(x, z, output_dim, up=False):
     see https://arxiv.org/pdf/1809.11096.pdf,
     figure 16, left side.
     """
+    BatchNorm = partial(ConditionalBatchNormalization, momentum=momentum)
     input_dim = K.int_shape(x)[-1]
     x0 = x
-    x = HyperBatchNorm(x, z)
+    x = BatchNorm(x, z)
     x = Activation("relu")(x)
     x = SpectralConv2D(input_dim // 4, 1, use_bias=False)(x)
-    x = HyperBatchNorm(x, z)
+    x = BatchNorm(x, z)
     x = Activation("relu")(x)
     if up:
         x = UpSampling2D()(x)
     x = SpectralConv2D(input_dim // 4, 3, use_bias=False)(x)
-    x = HyperBatchNorm(x, z)
+    x = BatchNorm(x, z)
     x = Activation("relu")(x)
     x = SpectralConv2D(input_dim // 4, 3, use_bias=False)(x)
-    x = HyperBatchNorm(x, z)
+    x = BatchNorm(x, z)
     x = Activation("relu")(x)
     x = SpectralConv2D(output_dim, 1, use_bias=False)(x)
     if input_dim > output_dim:
@@ -318,12 +334,17 @@ def Generator(
     *,
     num_classes: int,
     ch: int = cfg.defaults.channels,
-    latent_dim: int = cfg.defaults.latent_dim
+    latent_dim: int = cfg.defaults.latent_dim,
+    momentum: float = cfg.defaults.momentum,
 ):
     """
     Cf. https://arxiv.org/pdf/1809.11096.pdf,
     table 8, left side.
     """
+
+    # Use the same momentum in all batch norm layers.
+    Block = partial(GBlock, momentum=momentum)
+
     # Input z-vector.
     z = Input((latent_dim,))
 
@@ -341,34 +362,34 @@ def Generator(
     x = Reshape((4, 4, 16 * ch))(x)
 
     # (4, 4, 16ch) -> (8, 8, 16ch)
-    x = GBlock(x, c, 16 * ch)
-    x = GBlock(x, c, 16 * ch, up=True)
+    x = Block(x, c, 16 * ch)
+    x = Block(x, c, 16 * ch, up=True)
 
     # (8, 8, 16ch) -> (16, 16, 8ch)
-    x = GBlock(x, c, 16 * ch)
-    x = GBlock(x, c, 8 * ch, up=True)
+    x = Block(x, c, 16 * ch)
+    x = Block(x, c, 8 * ch, up=True)
 
     # (16, 16, 8ch) -> (32, 32, 8ch)
-    x = GBlock(x, c, 8 * ch)
-    x = GBlock(x, c, 8 * ch, up=True)
+    x = Block(x, c, 8 * ch)
+    x = Block(x, c, 8 * ch, up=True)
 
     # (32, 32, 8ch) -> (64, 64, 4ch)
-    x = GBlock(x, c, 8 * ch)
-    x = GBlock(x, c, 4 * ch, up=True)
+    x = Block(x, c, 8 * ch)
+    x = Block(x, c, 4 * ch, up=True)
 
     # Non-local @ (64, 64, 4ch)
     x = Attention(x, use_bias=False)
 
     # (64, 64, 4ch) -> (128, 128, 2ch)
-    x = GBlock(x, c, 4 * ch)
-    x = GBlock(x, c, 2 * ch, up=True)
+    x = Block(x, c, 4 * ch)
+    x = Block(x, c, 2 * ch, up=True)
 
     # (128, 128, 2ch) -> (256, 256, 1ch)
-    x = GBlock(x, c, 2 * ch)
-    x = GBlock(x, c, 1 * ch, up=True)
+    x = Block(x, c, 2 * ch)
+    x = Block(x, c, 1 * ch, up=True)
 
     # (256, 256, 1ch) -> (256, 256, 3)
-    x = HyperBatchNorm(x, c)
+    x = ConditionalBatchNormalization(x, c, momentum=momentum)
     x = Activation("relu")(x)
     x = SpectralConv2D(3, 3)(x)
     x = Activation("tanh")(x)
