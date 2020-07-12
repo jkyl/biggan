@@ -21,6 +21,7 @@ class BigGAN(tf.keras.Model):
         channels: int = cfg.defaults.channels,
         latent_dim: int = cfg.defaults.latent_dim,
         momentum: float = cfg.defaults.momentum,
+        epsilon: float = cfg.defaults.momentum,
         num_classes: int,
     ):
         """
@@ -32,13 +33,16 @@ class BigGAN(tf.keras.Model):
             num_classes=num_classes,
             latent_dim=latent_dim,
             momentum=momentum,
+            epsilon=epsilon,
         )
         self.D = Discriminator(
             ch=channels,
             num_classes=num_classes,
+            epsilon=epsilon,
         )
         self.num_classes = num_classes
         self.latent_dim = latent_dim
+        self.epsilon = epsilon
 
     def set_global_batch_size(self, global_batch_size: int):
         """
@@ -81,8 +85,8 @@ class BigGAN(tf.keras.Model):
         Constructs dual optimizers for BigGAN training.
         """
         super().compile()
-        self.G_adam = tf.optimizers.Adam(G_learning_rate, G_beta_1, G_beta_2)
-        self.D_adam = tf.optimizers.Adam(D_learning_rate, D_beta_1, D_beta_2)
+        self.G_adam = tf.optimizers.Adam(G_learning_rate, G_beta_1, G_beta_2, epsilon=self.epsilon)
+        self.D_adam = tf.optimizers.Adam(D_learning_rate, D_beta_1, D_beta_2, epsilon=self.epsilon)
         self.set_num_D_updates(num_D_updates)
         self.set_global_batch_size(global_batch_size)
 
@@ -132,7 +136,7 @@ class BigGAN(tf.keras.Model):
         # Do the forward pass, recording gradients for the trainable parameters.
         with tf.GradientTape(persistent=True, watch_accessed_variables=False) as tape:
             tape.watch(self.D.trainable_weights + self.G.trainable_weights)
-            latent_vector = tf.random.normal(shape=(labels.shape[0], self.latent_dim))
+            latent_vector = tf.nn.relu(tf.random.normal(shape=(labels.shape[0], self.latent_dim)))
             predictions = self.G([latent_vector, labels], training=True)
             logits_fake = self.D([predictions, labels], training=True)
             logits_real = self.D([features, labels], training=True)
@@ -236,6 +240,7 @@ def build_model(
     global_batch_size: Union[int, None] = None,
     use_tpu: bool = cfg.defaults.use_tpu,
     momentum: float = cfg.defaults.momentum,
+    epsilon: float = cfg.defaults.epsilon,
 ):
     """
     Builds the model within a distribution strategy context.
@@ -246,6 +251,7 @@ def build_model(
             num_classes=(num_classes() if callable(num_classes) else num_classes),
             latent_dim=latent_dim,
             momentum=momentum,
+            epsilon=epsilon,
         )
         model.compile(
             G_learning_rate=G_learning_rate,

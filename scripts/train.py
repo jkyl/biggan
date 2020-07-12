@@ -33,6 +33,7 @@ def run(
     latent_dim: int = cfg.defaults.latent_dim,
     use_tpu: bool = cfg.defaults.use_tpu,
     momentum: float = cfg.defaults.momentum,
+    epsilon: float = cfg.defaults.momentum,
     num_D_updates: int = cfg.defaults.num_D_updates,
     **unused_kwargs,
 ):
@@ -71,6 +72,7 @@ def run(
         D_beta_2=D_beta_2,
         use_tpu=use_tpu,
         momentum=momentum,
+        epsilon=epsilon,
         num_D_updates=num_D_updates,
     )
     # Train the model on the dataset.

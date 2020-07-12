@@ -24,6 +24,10 @@ momentum:
   default: 0.99
   help: momentum for batch norm running statistics
 
+epsilon:
+  default: 1.0E-8
+  help: fudge factor for finite precision division
+
 G_learning_rate:
   default: 0.000025
   help: learning rate of the generator
