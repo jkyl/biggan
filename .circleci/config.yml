@@ -1,24 +1,16 @@
 version: 2.1
 
 jobs:
-  build:
+  build-and-test:
     docker:
       - image: circleci/python:3.7.5
     steps:
       - checkout
       - run: poetry build
       - run: poetry install
-  test:
-    docker:
-      - image: circleci/python:3.7.5
-    steps:
-      - checkout
       - run: poetry run pytest
 
 workflows:
   build_and_test:
     jobs:
-      - build
-      - test:
-          requires:
-            - build
+      - build-and-test
