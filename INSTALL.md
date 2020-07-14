@@ -1,7 +1,7 @@
 # Install from source
 BigGAN uses [Poetry](https://python-poetry.org) as a build manager. Please refer to 
 [their documentation](https://python-poetry.org/docs/) for detailed descriptions of 
-these commands. Our build steps are as follows:
+these commands.
 
 ### Get Poetry
 ```
