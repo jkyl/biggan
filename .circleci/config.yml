@@ -9,3 +9,8 @@ jobs:
       - run: poetry build
       - run: poetry install
       - run: poetry run pytest
+
+workflows:
+  build-and-test:
+    jobs:
+      - build-and-test
