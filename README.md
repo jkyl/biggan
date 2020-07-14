@@ -7,12 +7,12 @@
 ```
 pip install biggan
 ```
-See [INSTALL.md](./INSTALL.md) to build from source.
+This installs the `biggan` library and top-level scripts. See [INSTALL.md](./INSTALL.md) to build from source.
 ### Prepare data
 ```
-poetry run biggan.prepare --help
+biggan.prepare --help
 ```
 ### Train
 ```
-poetry run biggan.train --help
+biggan.train --help
 ```
