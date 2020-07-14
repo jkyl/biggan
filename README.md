@@ -3,19 +3,16 @@
 
 [BigGAN](https://arxiv.org/abs/1809.11096) in idiomatic Keras.
 
-### Setup
+### Install
 ```
-poetry build && poetry install
+pip install biggan
 ```
-### Test
-```
-poetry run pytest
-```
+See [INSTALL.md](./INSTALL.md) to build from source.
 ### Prepare data
 ```
-poetry run biggan.prepare
+poetry run biggan.prepare --help
 ```
 ### Train
 ```
-poetry run biggan.train
+poetry run biggan.train --help
 ```
