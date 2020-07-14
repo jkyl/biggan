@@ -10,7 +10,7 @@ def _get_config(config_name: str):
         return yaml.load(f, Loader=yaml.Loader)
 
 
-def _get_config_parser(config_name: str, parent: argparse.ArgumentParser = None):
+def get_config_parser(config_name: str, parent: argparse.ArgumentParser = None):
     config = _get_config(config_name)
     parents = [parent] if parent else []
     parser = argparse.ArgumentParser(
@@ -43,4 +43,4 @@ def _get_config_parser(config_name: str, parent: argparse.ArgumentParser = None)
     return parser
 
 
-base = _get_config_parser("base")
+base = get_config_parser("base")

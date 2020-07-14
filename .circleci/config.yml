@@ -8,7 +8,7 @@ jobs:
       - checkout
       - run: poetry build
       - run: poetry install
-      - run: poetry run pytest
+      - run: poetry run pytest -p no:warnings
 
 workflows:
   build-and-test:
