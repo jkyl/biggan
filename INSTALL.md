@@ -1,12 +1,17 @@
-### Get Poetry (dependency resolver + build manager)
+# Install from source
+BigGAN uses [Poetry](https://python-poetry.org) as a build manager. Please refer to 
+[their documentation](https://python-poetry.org/docs/) for detailed descriptions of 
+these commands. Our build steps are as follows:
+
+### Get Poetry
 ```
 curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python
 ```
-### Build
+### Build BigGAN
 ```
 poetry build
 ```
-### Install
+### Install BigGAN
 ```
 poetry install
 ```
