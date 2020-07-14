@@ -7,17 +7,17 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "Get Poetry"
-          command: curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python && source $HOME/.poetry/env
+        name: "Get Poetry"
+        command: curl -sSL https://raw.githubusercontent.com/python-poetry/poetry/master/get-poetry.py | python && source $HOME/.poetry/env
       - run:
-          name: "Build the package"
-          command: poetry build
+        name: "Build the package"
+        command: poetry build
       - run:
-          name: "Install dependencies"
-          command: poetry install
-      -run:
-          name: "Run tests"
-          command: poetry run pytest
+        name: "Install dependencies"
+        command: poetry install
+      - run:
+        name: "Run tests"
+        command: poetry run pytest
 
 workflows:
   main:
