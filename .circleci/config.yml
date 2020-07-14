@@ -1,7 +1,7 @@
 version: 2.1
 
 jobs:
-  build-and-test:
+  build:
     docker:
       - image: circleci/python:3.7.5
     steps:
@@ -15,11 +15,16 @@ jobs:
       - run:
         name: "Install dependencies"
         command: poetry install
+  test:
+    docker:
+      - image: circleci/python:3.7.5
+    steps:
       - run:
         name: "Run tests"
         command: poetry run pytest
 
 workflows:
-  main:
+  build_and_test:
     jobs:
-      - build-and-test
+      - build
+      - test
