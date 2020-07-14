@@ -12,7 +12,9 @@ This installs the `biggan` library and top-level scripts. See [INSTALL.md](./INS
 ```
 biggan.prepare --help
 ```
+This serializes a set of image files into [TFRecords](https://www.tensorflow.org/tutorials/load_data/tfrecord).
 ### Train
 ```
 biggan.train --help
 ```
+This trains a BigGAN model from scratch on the serialized image data. 
