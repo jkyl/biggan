@@ -3,7 +3,7 @@ import os
 
 import tensorflow as tf
 
-from typing import List, Tuple, Dict, Union
+from typing import List, Tuple, Dict, Union, Callable
 from contextlib import nullcontext
 
 from .architecture import Generator, Discriminator
@@ -18,6 +18,7 @@ class BigGAN(tf.keras.Model):
     def __init__(
         self,
         *,
+        image_size: int,
         channels: int = cfg.defaults.channels,
         latent_dim: int = cfg.defaults.latent_dim,
         momentum: float = cfg.defaults.momentum,
@@ -29,6 +30,7 @@ class BigGAN(tf.keras.Model):
         """
         super().__init__()
         self.G = Generator(
+            image_size=image_size,
             ch=channels,
             num_classes=num_classes,
             latent_dim=latent_dim,
@@ -36,6 +38,7 @@ class BigGAN(tf.keras.Model):
             epsilon=epsilon,
         )
         self.D = Discriminator(
+            image_size=image_size,
             ch=channels,
             num_classes=num_classes,
             epsilon=epsilon,
@@ -226,8 +229,9 @@ def get_strategy_scope(use_tpu=cfg.defaults.use_tpu):
 
 def build_model(
     *,
+    image_size: int,
     channels: int = cfg.defaults.channels,
-    num_classes: Union[int, callable], # Determined lazily from the dataset.
+    num_classes: Union[int, Callable], # Determined lazily from the dataset.
     latent_dim: int = cfg.defaults.latent_dim,
     checkpoint: str = None,
     G_learning_rate: float = cfg.defaults.G_learning_rate,
@@ -247,6 +251,7 @@ def build_model(
     """
     with get_strategy_scope(use_tpu=use_tpu):
         model = BigGAN(
+            image_size=image_size,
             channels=channels,
             num_classes=(num_classes() if callable(num_classes) else num_classes),
             latent_dim=latent_dim,

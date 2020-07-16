@@ -18,6 +18,7 @@ def run(
     *,
     tfrecord_path: str,
     model_path: str,
+    image_size: int,
     channels: int = cfg.defaults.channels,
     batch_size: int = cfg.defaults.batch_size,
     num_epochs: int = cfg.defaults.num_epochs,
@@ -46,6 +47,7 @@ def run(
 
     # Create a dataset object from tfrecord files.
     dataset = biggan.get_tfrecord_dataset(
+        image_size=image_size,
         tfrecord_path=tfrecord_path,
         batch_size=batch_size,
         shuffle_buffer_size=shuffle_buffer_size,
@@ -60,6 +62,7 @@ def run(
 
     # Build the model.
     model = biggan.build_model(
+        image_size=image_size,
         channels=channels,
         num_classes=lambda: next(iter(dataset.take(1)))[1].shape[1],
         latent_dim=latent_dim,

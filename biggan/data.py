@@ -2,7 +2,6 @@ import tensorflow as tf
 import numpy as np
 import os
 
-
 from .config import base as cfg
 
 
@@ -22,7 +21,7 @@ def postprocess_image(img):
     return tf.cast(tf.round(tf.clip_by_value(img * 127.5 + 127.5, 0, 255)), tf.uint8)
 
 
-def get_preprocessing_pipeline(data_path, image_size=cfg.defaults.image_size):
+def get_preprocessing_pipeline(data_path, image_size):
     """
     Streams resized images and their class labels from disk to a tf.data.Dataset.
     """
@@ -78,7 +77,8 @@ def serialize_to_tfrecords(
     *,
     input_path: str,
     output_path: str,
-    num_examples_per_shard: int = 1024,
+    image_size: int,
+    num_examples_per_shard: int,
 ):
     """
     Serializes images in `input_path` along with their class labels
@@ -108,7 +108,7 @@ def serialize_to_tfrecords(
         return tf.reshape(tf_string, ())
 
     # Create the preprocessing pipeline.
-    dataset = get_preprocessing_pipeline(input_path)
+    dataset = get_preprocessing_pipeline(input_path, image_size=image_size)
 
     # Serialize the preprocessed data.
     dataset = dataset.map(tf_serialize)
@@ -129,12 +129,12 @@ def serialize_to_tfrecords(
 
 
 def get_tfrecord_dataset(
-    tfrecord_path,
+    tfrecord_path: str,
     *,
-    batch_size=cfg.defaults.batch_size,
-    image_size=cfg.defaults.image_size,
-    shuffle_buffer_size=cfg.defaults.shuffle_buffer_size,
-    do_cache: bool=cfg.defaults.do_cache,
+    image_size: int,
+    batch_size: int = cfg.defaults.batch_size,
+    shuffle_buffer_size: int = cfg.defaults.shuffle_buffer_size,
+    do_cache: bool = cfg.defaults.do_cache,
 ):
     """
     Loads all tfrecord files stored in `tfrecord_path` into a dataset.

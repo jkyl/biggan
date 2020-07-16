@@ -23,6 +23,19 @@ def parse_args():
         type=str,
         help="path in which to save processed images and labels as gzipped tfrecords",
     )
+    p.add_argument(
+        "--image_size",
+        required=True,
+        type=int,
+        choices=(128, 256, 512),
+        help="sidelength of the images in pixels",
+    )
+    p.add_argument(
+        "--num_examples_per_shard",
+        type=int,
+        default=2048,
+        help="number of images and labels to put in each tfrecord file",
+    )
     return vars(p.parse_args())
 
 

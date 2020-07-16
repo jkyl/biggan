@@ -37,9 +37,17 @@ def get_config_parser(config_name: str, parent: argparse.ArgumentParser = None):
         for action in parser._actions
         if action.option_strings
     })
+    parser.choices = argparse.Namespace(**{
+        action.dest: action.choices
+        for action in parser._actions
+        if action.choices is not None
+    })
     for action in parser._actions:
-        if action.type is None and action.dest in config and action.default is not None:
-            action.type = type(action.default)
+        if action.type is None and action.dest in config:
+            if action.default is not None:
+                action.type = type(action.default)
+            elif action.choices is not None:
+                action.type = type(next(iter(action.choices)))
     return parser
 
 

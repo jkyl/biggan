@@ -53,8 +53,7 @@ D_beta_2:
   help: decay rate for the 2nd moment estimates in the discriminator's optimizer
 
 image_size:
-  default: 256
-  choices: [256]
+  choices: [128, 256, 512]
   help: image sidelength in pixels
 
 num_epochs:
