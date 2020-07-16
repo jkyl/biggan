@@ -13,7 +13,7 @@ from .config import base as cfg
 
 class BigGAN(tf.keras.Model):
     """
-    Implementation of 256x256x3 BigGAN in Keras.
+    Implementation of BigGAN in Keras.
     """
     def __init__(
         self,

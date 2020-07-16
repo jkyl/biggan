@@ -4,7 +4,7 @@ version = "1.0.0a0"
 description = "BigGAN in idiomatic Keras"
 authors = ["Jon Kyl"]
 license = "GPL-3.0-only"
-include = ["*.md", "biggan/config/*.yaml"]
+include = ["LICENSE", "*.md", "biggan/config/*.yaml"]
 
 [tool.poetry.scripts]
 "biggan.prepare" = "biggan.scripts.prepare:main"
