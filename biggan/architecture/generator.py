@@ -91,7 +91,7 @@ def Generator(
     epsilon: float = cfg.defaults.epsilon,
 ):
     """
-    Cf. https://arxiv.org   /pdf/1809.11096.pdf,
+    Cf. https://arxiv.org/pdf/1809.11096.pdf,
     table 8, left side.
     """
 
