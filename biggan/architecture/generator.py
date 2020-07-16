@@ -163,7 +163,7 @@ def Generator(
         else:
             output_dim = block_config["ch"] * ch
             up = block_config["up"] if "up" in block_config else False
-            x = Block(x, z, output_dim=output_dim, up=up)
+            x = Block(x, c, output_dim=output_dim, up=up)
 
     # (256, 256, 1ch) -> (256, 256, 3)
     x = BatchNorm(x, c)
