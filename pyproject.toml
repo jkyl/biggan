@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "biggan"
-version = "1.0.0a0"
+version = "1.0.0a1"
 description = "BigGAN in idiomatic Keras"
 authors = ["Jon Kyl"]
 license = "GPL-3.0-only"
