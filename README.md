@@ -3,6 +3,8 @@
 
 [BigGAN](https://arxiv.org/abs/1809.11096) in idiomatic [Keras](https://keras.io/about/).
 
+>***BigGAN is in public alpha! If you'd like to contribute, please refer to the [issues tab](https://github.com/jkyl/biggan/issues) and consider opening a pull request 🙂***
+
 ### Install
 ```
 pip install biggan
