@@ -27,7 +27,7 @@ def test_that_it_captures_long_range_dependencies():
     assert not np.allclose(single_one_out, single_one_in)
 
 
-def test_that_it_has_the_correct_number_and_type_of_trainable_weights():
+def test_that_it_has_the_correct_number_type_and_shape_of_trainable_weights():
 
     # Attention should have 4 convolution layers, and the last one should
     # have a bias vector.
@@ -43,3 +43,17 @@ def test_that_it_has_the_correct_number_and_type_of_trainable_weights():
 
     # Check that the last one is a bias.
     assert weight_types[-1] == "bias"
+    
+    # Check that the weights are all 1x1 kernels.
+    weights = model.trainable_weights[:4]
+    weight_shapes = [tf.squeeze(w).shape for w in weights]
+    assert all([len(shape) == 2 for shape in weight_shapes])
+    
+    # Check that the first two weights reduce the number of channels by a factor of 8.
+    assert all([shape[0] == 8 * shape[1] for shape in weight_shapes[:2]])
+    
+    # Check that the third weight reduces the number of channels by a factor of 2.
+    assert weight_shapes[2][0] == 2 * weight_shapes[2][1]
+    
+    # Check that the last weight increases the number of channels by a factor of 2.
+    assert weight_shapes[3][0] * 2 == weight_shapes[3][1]
