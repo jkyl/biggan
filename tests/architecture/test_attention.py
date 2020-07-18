@@ -50,10 +50,10 @@ def test_that_it_has_the_correct_number_type_and_shape_of_trainable_weights():
     assert all([shape[:2] == (1, 1) for shape in weight_shapes])
     
     # Check that the first two weights reduce the number of channels by a factor of 8.
-    assert all([shape[0] == 8 * shape[1] for shape in weight_shapes[:2]])
+    assert all([shape[2] == 8 * shape[3] for shape in weight_shapes[:2]])
     
     # Check that the third weight reduces the number of channels by a factor of 2.
-    assert weight_shapes[2][0] == 2 * weight_shapes[2][1]
+    assert weight_shapes[2][2] == 2 * weight_shapes[2][3]
     
     # Check that the last weight increases the number of channels by a factor of 2.
-    assert weight_shapes[3][0] * 2 == weight_shapes[3][1]
+    assert weight_shapes[3][2] * 2 == weight_shapes[3][3]
