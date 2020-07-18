@@ -47,7 +47,7 @@ def test_that_it_has_the_correct_number_type_and_shape_of_trainable_weights():
     # Check that the weights are all 1x1 kernels.
     weights = model.trainable_weights[:4]
     weight_shapes = [w.shape for w in weights]
-    assert all([shape[2:] == (1, 1) for shape in weight_shapes])
+    assert all([shape[:2] == (1, 1) for shape in weight_shapes])
     
     # Check that the first two weights reduce the number of channels by a factor of 8.
     assert all([shape[0] == 8 * shape[1] for shape in weight_shapes[:2]])
