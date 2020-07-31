@@ -4,7 +4,8 @@ import os
 import tensorflow as tf
 
 from typing import List, Tuple, Dict, Union, Callable
-from contextlib import nullcontext
+
+from contextlib import suppress
 
 from .architecture import Generator, Discriminator
 from .data import postprocess_image
@@ -224,7 +225,7 @@ def get_strategy_scope(use_tpu=cfg.defaults.use_tpu):
         raise NotImplementedError("use_tpu=True")
     if len(tf.config.list_physical_devices("GPU")) > 1:
         return tf.distribute.MirroredStrategy().scope()
-    return nullcontext()
+    return suppress()
 
 
 def build_model(
