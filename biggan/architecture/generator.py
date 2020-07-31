@@ -169,7 +169,7 @@ def Generator(
     x = BatchNorm(x, c)
     x = Activation("relu")(x)
     x = SNConv2D(3, 3)(x)
-    x = Activation("tanh")(x)
+    x = Activation("tanh", dtype="float32")(x)
 
     # Return Keras model.
     return Model([z, y], x, name="Generator")

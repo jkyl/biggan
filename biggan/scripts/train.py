@@ -10,13 +10,14 @@ __author__ = "Jon Kyl"
 import tensorflow as tf
 import biggan
 
+from tensorflow.keras.mixed_precision import experimental as mixed_precision
 
 cfg = biggan.config.base
 
 
 def _run(args):
     """
-    Builds a model, builds a dataset, then trains the model on the dataset.
+    Builds a dataset and a model, then trains the model on the dataset.
     """
 
     # Create a dataset object from tfrecord files.
@@ -33,6 +34,11 @@ def _run(args):
         initial_epoch = 0
     else:
         initial_epoch = int(checkpoint.split("ckpt_")[-1].split(".")[0])
+
+    # Set the mixed precision policy.
+    if args.mixed_precision:
+        mixed_precision.set_policy(mixed_precision.Policy(
+            "mixed_bfloat16" if args.use_tpu else "mixed_float16"))
 
     # Build the model.
     model = biggan.build_model(

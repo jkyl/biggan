@@ -44,7 +44,8 @@ def spectrally_normalize_weight(
     W_bar = W_reshaped / sigma
 
     def assign_update():
-        with tf.control_dependencies([right_singular_vector.assign(_u)]):
+        assign_op = right_singular_vector.assign(tf.cast(_u, tf.float32))
+        with tf.control_dependencies([assign_op]):
             return K.reshape(W_bar, W_shape)
 
     W_bar = tf_utils.smart_cond(

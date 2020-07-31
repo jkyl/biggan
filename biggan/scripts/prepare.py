@@ -42,5 +42,6 @@ def parse_args():
 def main(args=None):
     serialize_to_tfrecords(**(args or parse_args()))
 
+
 if __name__ == "__main__":
     main()

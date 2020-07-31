@@ -77,3 +77,8 @@ use_tpu:
   default: false
   action: store_true
   help: whether to use a TPU as the compute device
+
+mixed_precision:
+  default: false
+  action: store_true
+  help: whether to use a mixed precision dtype policy

@@ -30,7 +30,7 @@ def Attention(x, use_bias=True, epsilon=cfg.defaults.epsilon):
     h = SNConv2D(channels // 2, 1, use_bias=False)(xbar)
     h = Reshape((space // 4, channels // 2))(h)
     attn = Dot((2, 2))([f, g])
-    attn = Activation("softmax")(attn)
+    attn = Activation("softmax", dtype="float32")(attn)
     y = Dot((2, 1))([attn, h])
     y = Reshape((height, width, channels // 2))(y)
     y = SNConv2D(channels, 1, use_bias=use_bias)(y)
