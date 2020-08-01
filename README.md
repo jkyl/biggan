@@ -1,5 +1,5 @@
 # biggan
-[![jkyl](https://circleci.com/gh/jkyl/biggan.svg?style=shield)](https://app.circleci.com/pipelines/github/jkyl/biggan) [![PyPI version](https://badge.fury.io/py/biggan.svg)](https://badge.fury.io/py/biggan)
+[![jkyl](https://circleci.com/gh/jkyl/biggan.svg?style=shield)](https://app.circleci.com/pipelines/github/jkyl/biggan) [![PyPI version](https://badge.fury.io/py/biggan.svg)](https://pypi.org/project/biggan/)
 
 [BigGAN](https://arxiv.org/abs/1809.11096) in idiomatic [Keras](https://keras.io/about/).
 
