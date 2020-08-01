@@ -10,7 +10,7 @@ __author__ = "Jon Kyl"
 import tensorflow as tf
 import biggan
 
-from tensorflow.keras.mixed_precision import experimental as mixed_precision
+from tensorflow.keras.mixed_precision import experimental as mp
 
 cfg = biggan.config.base
 
@@ -37,8 +37,7 @@ def _run(args):
 
     # Set the mixed precision policy.
     if args.mixed_precision:
-        mixed_precision.set_policy(mixed_precision.Policy(
-            "mixed_bfloat16" if args.use_tpu else "mixed_float16"))
+        mp.set_policy(mp.Policy("mixed_bfloat16" if args.use_tpu else "mixed_float16"))
 
     # Build the model.
     model = biggan.build_model(
