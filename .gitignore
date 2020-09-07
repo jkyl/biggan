@@ -1,8 +1,6 @@
 .DS_Store
 .idea/
 __pycache__/
-*.np*
-venv/
 *.pyc
 *.swp
-poetry.lock
+dist/
